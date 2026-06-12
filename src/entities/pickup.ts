@@ -15,6 +15,7 @@ export function createPickup(
   x: number,
   y: number,
   phase: number,
+  bonus = false,
 ): Pickup {
   const collider = ctx.world.createCollider(
     RAPIER.ColliderDesc.ball(PICKUP_RADIUS[type] + 6) // forgiving grab radius
@@ -23,7 +24,16 @@ export function createPickup(
       .setCollisionGroups(PICKUP_GROUPS)
       .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
   );
-  const pickup: Pickup = { kind: 'pickup', type, collider, x, y, taken: false, phase };
+  const pickup: Pickup = {
+    kind: 'pickup',
+    type,
+    collider,
+    x,
+    y,
+    taken: false,
+    phase,
+    bonus,
+  };
   ctx.register(collider, pickup);
   return pickup;
 }

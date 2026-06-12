@@ -26,6 +26,7 @@ import {
   MAP_H,
   GEM_COUNT,
   GEM_SCORE,
+  GEM_BONUS_MULT,
   ORB_COUNT,
   MULT_MAX,
   SHIELD_COUNT,
@@ -156,6 +157,7 @@ export class Game {
             well.x + Math.cos(a) * r,
             well.y + Math.sin(a) * r,
             rng() * 10,
+            true,
           ),
         );
       }
@@ -342,12 +344,15 @@ export class Game {
     if (pickup.taken) return;
     removePickup(this.physics, pickup);
     switch (pickup.type) {
-      case 'gem':
-        this.score += GEM_SCORE * this.player.mult;
+      case 'gem': {
+        const value = pickup.bonus ? GEM_SCORE * GEM_BONUS_MULT : GEM_SCORE;
+        this.score += value * this.player.mult;
         this.gemsCollected++;
         if (this.gemsCollected >= GEM_COUNT) this.gate.active = true;
-        this.particles.burst(pickup.x, pickup.y, 10, 150, 0.5, 3, '#41ffe0');
+        const n = pickup.bonus ? 20 : 10;
+        this.particles.burst(pickup.x, pickup.y, n, 150, 0.5, 3, '#41ffe0');
         break;
+      }
       case 'orb':
         this.player.mult = Math.min(MULT_MAX, this.player.mult + 1);
         this.player.hull = Math.min(HULL_MAX, this.player.hull + ORB_HEAL);

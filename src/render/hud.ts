@@ -99,7 +99,8 @@ function drawMinimap(ctx: CanvasRenderingContext2D, game: Game, w: number): void
   ctx.fillStyle = '#41ffe0';
   for (const p of game.pickups) {
     if (p.taken || p.type !== 'gem') continue;
-    ctx.fillRect(mx + p.x * sx - 1, my + p.y * sy - 1, 2, 2);
+    const r = p.bonus ? 1.5 : 1;
+    ctx.fillRect(mx + p.x * sx - r, my + p.y * sy - r, r * 2, r * 2);
   }
   // Gate
   ctx.fillStyle = game.gate.active ? '#5dff8a' : 'rgba(140,150,160,0.7)';
@@ -209,7 +210,8 @@ export function drawOverlay(
     const lines = [
       `Collect all ${GEM_COUNT} gems, then escape through the exit gate.`,
       'A hunter ship is on your tail — if it touches you, you lose.',
-      'Asteroids damage your hull. Gravity well cores devour ships.',
+      'Asteroids damage your hull. Gravity well cores devour ships —',
+      'but the big gems ringing them are worth triple.',
       '',
       'W / ↑  thrust      A·D / ←·→  turn      S / ↓  retro',
       'SPACE  boost       gold orbs boost your multiplier and repair hull',

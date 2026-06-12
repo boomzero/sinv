@@ -198,10 +198,19 @@ function drawGate(ctx: CanvasRenderingContext2D, gate: Gate, time: number): void
 
 function drawPickup(ctx: CanvasRenderingContext2D, p: Pickup, time: number): void {
   const bob = Math.sin(time * 2.2 + p.phase) * 3;
-  const s = 1 + 0.07 * Math.sin(time * 3 + p.phase);
+  // Bonus gems are bigger and pulse harder so the extra value reads at a glance
+  const base = p.bonus ? 1.5 : 1;
+  const s = base * (1 + (p.bonus ? 0.12 : 0.07) * Math.sin(time * 3 + p.phase));
   const sprite = getSprites()[p.type];
   ctx.save();
   ctx.translate(p.x, p.y + bob);
+  if (p.bonus) {
+    ctx.strokeStyle = `rgba(65,255,224,${0.35 + 0.25 * Math.sin(time * 3 + p.phase)})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 19 * s, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   ctx.scale(s, s);
   ctx.drawImage(sprite, -SPRITE_SIZE / 2, -SPRITE_SIZE / 2);
   ctx.restore();

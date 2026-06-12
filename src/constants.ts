@@ -40,6 +40,7 @@ export const HUNTER_AVOID_DIST = 190;
 // Pickups & map population
 export const GEM_COUNT = 25;
 export const GEM_SCORE = 100;
+export const GEM_BONUS_MULT = 3; // well-ring gems pay for the risk
 export const ORB_COUNT = 8;
 export const ORB_HEAL = 25; // multiplier orbs also patch the hull
 export const MULT_MAX = 5;

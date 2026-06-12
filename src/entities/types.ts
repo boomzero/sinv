@@ -41,6 +41,8 @@ export interface Pickup {
   y: number;
   taken: boolean;
   phase: number; // animation offset
+  /** Bonus gems (rings around gravity wells) are worth extra. */
+  bonus: boolean;
 }
 
 export interface Gate {
