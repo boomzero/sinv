@@ -231,18 +231,23 @@ export function drawOverlay(
       w / 2,
       cy + 18,
     );
+    ctx.fillText(
+      'gold orbs  +1 multiplier (max ×5)  ·  +25 hull repair',
+      w / 2,
+      cy + 38,
+    );
 
     // Controls
     ctx.fillStyle = 'rgba(232,244,255,0.7)';
     ctx.fillText(
       'W thrust  ·  A·D turn  ·  S retro  ·  SPACE boost  ·  P pause  ·  R restart',
       w / 2,
-      cy + 58,
+      cy + 76,
     );
     ctx.fillText(
       `M mouse steering (${game.mouseSteer ? 'ON' : 'OFF'}) — aim with cursor, hold click to thrust`,
       w / 2,
-      cy + 80,
+      cy + 98,
     );
 
     // Difficulty selector: [1] EASY  [2] NORMAL  [3] HARD
@@ -256,20 +261,20 @@ export function drawOverlay(
       const selected = i === game.difficultyIndex;
       ctx.textAlign = 'left';
       ctx.fillStyle = selected ? '#ffd24a' : 'rgba(232,244,255,0.4)';
-      ctx.fillText(label, x, cy + 128);
+      ctx.fillText(label, x, cy + 146);
       if (selected) {
-        ctx.fillRect(x, cy + 140, widths[i], 2);
+        ctx.fillRect(x, cy + 158, widths[i], 2);
       }
       x += widths[i] + gap;
     });
     ctx.textAlign = 'center';
     ctx.font = `12px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.45)';
-    ctx.fillText(game.difficulty.blurb, w / 2, cy + 162);
+    ctx.fillText(game.difficulty.blurb, w / 2, cy + 180);
 
     ctx.font = `bold 20px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, cy + 210);
+    ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, cy + 228);
   } else if (game.state === 'paused') {
     ctx.fillStyle = '#e8f4ff';
     ctx.font = `bold 44px ${FONT}`;
