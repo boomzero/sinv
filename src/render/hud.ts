@@ -216,7 +216,7 @@ export function drawOverlay(
       'White holes repel — ride the push to slingshot away.',
       '',
       'W / ↑  thrust      A·D / ←·→  turn      S / ↓  retro',
-      'SPACE  boost       gold orbs boost your multiplier and fully repair hull',
+      'SPACE  boost       gold orbs boost your multiplier and repair hull',
       'shields absorb one hit — rock or hunter alike',
       `M  mouse steering: ${game.mouseSteer ? 'ON' : 'OFF'}  — aim with cursor, hold click to thrust`,
     ];

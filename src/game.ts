@@ -43,6 +43,7 @@ import {
   WELL_MIN_DIST,
   WELL_HUNTER_FACTOR,
   WELL_CORE_RADIUS,
+  ORB_HEAL,
   HULL_MAX,
   BOOST_MAX,
   BOOST_PICKUP_REFILL,
@@ -415,9 +416,9 @@ export class Game {
       }
       case 'orb': {
         this.player.mult = Math.min(MULT_MAX, this.player.mult + 1);
-        // Full repair — the healed amount still costs half its win bonus
-        const healed = HULL_MAX - this.player.hull;
-        this.player.hull = HULL_MAX;
+        const healed =
+          Math.min(HULL_MAX, this.player.hull + ORB_HEAL) - this.player.hull;
+        this.player.hull += healed;
         this.player.healedTotal += healed;
         this.orbsCollected++;
         this.particles.burst(pickup.x, pickup.y, 14, 180, 0.6, 4, '#ffd24a');
