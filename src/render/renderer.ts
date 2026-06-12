@@ -1,7 +1,14 @@
 import type { Game } from '../game';
-import type { Asteroid, Pickup, Gate, GravityWell, PickupType } from '../entities/types';
+import type { Asteroid, Pickup, GravityWell, PickupType } from '../entities/types';
 import { drawStarfield } from './starfield';
-import { MAP_W, MAP_H, HUNTER_WARMUP, PLAYER_RADIUS, HUNTER_RADIUS } from '../constants';
+import {
+  MAP_W,
+  MAP_H,
+  HUNTER_WARMUP,
+  PLAYER_RADIUS,
+  HUNTER_RADIUS,
+  GEM_COUNT,
+} from '../constants';
 import { GATE_RADIUS } from '../entities/pickup';
 
 // --- Pre-rendered glow sprites for pickups (shadowBlur is expensive live) ---
@@ -102,7 +109,7 @@ export function drawScene(
 
   drawBounds(ctx, game.time);
   for (const well of game.wells) drawWell(ctx, well, game.time);
-  drawGate(ctx, game.gate, game.time);
+  drawGate(ctx, game);
   for (const p of game.pickups) {
     if (!p.taken) drawPickup(ctx, p, game.time);
   }
@@ -171,7 +178,9 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
   ctx.restore();
 }
 
-function drawGate(ctx: CanvasRenderingContext2D, gate: Gate, time: number): void {
+function drawGate(ctx: CanvasRenderingContext2D, game: Game): void {
+  const gate = game.gate;
+  const time = game.time;
   ctx.save();
   ctx.translate(gate.x, gate.y);
   const pulse = gate.active ? 1 + 0.08 * Math.sin(time * 5) : 1;
@@ -209,6 +218,29 @@ function drawGate(ctx: CanvasRenderingContext2D, gate: Gate, time: number): void
   ctx.fillStyle = gate.active ? '#5dff8a' : 'rgba(140,150,160,0.6)';
   ctx.fillText(gate.active ? 'EXIT' : 'LOCKED', 0, 0);
   ctx.restore();
+
+  // Hint when flying near the locked gate: explain what unlocks it
+  if (!gate.active && game.player.alive) {
+    const pp = game.player.body.translation();
+    const dist = Math.hypot(pp.x - gate.x, pp.y - gate.y);
+    if (dist < 420) {
+      const fade = Math.min(1, (420 - dist) / 120);
+      const left = GEM_COUNT - game.gemsCollected;
+      ctx.save();
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = `rgba(140,220,170,${0.85 * fade})`;
+      ctx.fillText(
+        left === GEM_COUNT
+          ? `EXIT GATE — COLLECT ALL ${GEM_COUNT} GEMS TO UNLOCK`
+          : `EXIT GATE — ${left} GEM${left === 1 ? '' : 'S'} REMAINING`,
+        gate.x,
+        gate.y - GATE_RADIUS - 28,
+      );
+      ctx.restore();
+    }
+  }
 }
 
 function drawPickup(ctx: CanvasRenderingContext2D, p: Pickup, time: number): void {
