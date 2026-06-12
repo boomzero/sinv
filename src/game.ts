@@ -126,7 +126,14 @@ export class Game {
         const y = range(rng, margin, MAP_H - margin);
         if (
           Math.hypot(x - PLAYER_SPAWN.x, y - PLAYER_SPAWN.y) >= minFromSpawn &&
-          Math.hypot(x - GATE_POS.x, y - GATE_POS.y) >= 200
+          Math.hypot(x - GATE_POS.x, y - GATE_POS.y) >= 200 &&
+          // Keep spawns out of white-hole fields: the push makes anything
+          // placed inside effectively unreachable
+          this.wells.every(
+            (w) =>
+              w.polarity === 1 ||
+              Math.hypot(x - w.x, y - w.y) >= w.radius + 40,
+          )
         ) {
           return { x, y };
         }
