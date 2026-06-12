@@ -125,30 +125,45 @@ function drawBounds(ctx: CanvasRenderingContext2D, time: number): void {
 }
 
 function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number): void {
+  const black = well.polarity === 1;
   ctx.save();
   ctx.translate(well.x, well.y);
 
   const grad = ctx.createRadialGradient(0, 0, 20, 0, 0, well.radius);
-  grad.addColorStop(0, 'rgba(150,60,255,0.22)');
-  grad.addColorStop(1, 'rgba(150,60,255,0)');
+  if (black) {
+    grad.addColorStop(0, 'rgba(150,60,255,0.22)');
+    grad.addColorStop(1, 'rgba(150,60,255,0)');
+  } else {
+    grad.addColorStop(0, 'rgba(180,225,255,0.2)');
+    grad.addColorStop(1, 'rgba(180,225,255,0)');
+  }
   ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.arc(0, 0, well.radius, 0, Math.PI * 2);
   ctx.fill();
 
-  // Rotating swirl arcs spiraling inward
-  ctx.strokeStyle = 'rgba(200,130,255,0.5)';
+  // Swirl arcs: black holes spiral inward, white holes spin the other way out
+  ctx.strokeStyle = black ? 'rgba(200,130,255,0.5)' : 'rgba(210,240,255,0.55)';
   ctx.lineWidth = 2;
+  const spin = black ? 1 : -1;
   for (let i = 0; i < 3; i++) {
-    const a0 = time * (0.6 + i * 0.25) + (i * Math.PI * 2) / 3;
+    const a0 = spin * time * (0.6 + i * 0.25) + (i * Math.PI * 2) / 3;
     const r = 40 + i * 45;
     ctx.beginPath();
     ctx.arc(0, 0, r, a0, a0 + Math.PI * 1.2);
     ctx.stroke();
   }
+  if (!black) {
+    // Expanding shockwave rings sell the outward push
+    const t = (time * 0.7) % 1;
+    ctx.strokeStyle = `rgba(220,245,255,${0.4 * (1 - t)})`;
+    ctx.beginPath();
+    ctx.arc(0, 0, 30 + t * 150, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
-  ctx.fillStyle = 'rgba(230,180,255,0.9)';
-  ctx.shadowColor = '#c873ff';
+  ctx.fillStyle = black ? 'rgba(230,180,255,0.9)' : 'rgba(255,255,255,0.95)';
+  ctx.shadowColor = black ? '#c873ff' : '#bfe6ff';
   ctx.shadowBlur = 20;
   ctx.beginPath();
   ctx.arc(0, 0, 9 + 2 * Math.sin(time * 4), 0, Math.PI * 2);

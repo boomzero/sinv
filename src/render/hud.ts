@@ -91,7 +91,8 @@ function drawMinimap(ctx: CanvasRenderingContext2D, game: Game, w: number): void
   ctx.strokeRect(mx, my, mw, mh);
 
   for (const well of game.wells) {
-    ctx.fillStyle = 'rgba(200,130,255,0.3)';
+    ctx.fillStyle =
+      well.polarity === 1 ? 'rgba(200,130,255,0.3)' : 'rgba(210,240,255,0.25)';
     ctx.beginPath();
     ctx.arc(mx + well.x * sx, my + well.y * sy, well.radius * sx, 0, Math.PI * 2);
     ctx.fill();
@@ -212,6 +213,7 @@ export function drawOverlay(
       'A hunter ship is on your tail — if it touches you, you lose.',
       'Asteroids damage your hull. Gravity well cores devour ships —',
       'but the big gems ringing them are worth triple.',
+      'White holes repel — ride the push to slingshot away.',
       '',
       'W / ↑  thrust      A·D / ←·→  turn      S / ↓  retro',
       'SPACE  boost       gold orbs boost your multiplier and repair hull',
@@ -221,7 +223,7 @@ export function drawOverlay(
 
     ctx.font = `bold 20px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, h / 2 + 158);
+    ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, h / 2 + 196);
   } else if (game.state === 'gameover') {
     ctx.fillStyle = '#ff5050';
     ctx.font = `bold 44px ${FONT}`;

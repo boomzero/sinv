@@ -36,6 +36,10 @@ export const HUNTER_LUNGE_TELEGRAPH = 0.8;
 export const HUNTER_LUNGE_IMPULSE = 620; // delta-v of a lunge burst
 export const HUNTER_LUNGE_GEM_FRACTION = 0.75; // lunges unlock past this collection ratio
 export const HUNTER_AVOID_DIST = 190;
+// Rocks smaller than this the hunter rams straight through instead of dodging
+export const HUNTER_AVOID_MIN_RADIUS = 45;
+// Delta-v shoved into any rock the hunter hits, along its direction of travel
+export const HUNTER_SHOVE_DV = 320;
 
 // Pickups & map population
 export const GEM_COUNT = 25;
@@ -52,7 +56,9 @@ export const ASTEROID_COUNT = 35;
 // inside WELL_RADIUS. Gentle at the rim (~130) but past ~100 units the pull
 // exceeds even boosted thrust — dive too deep and the core takes you.
 export const WELL_COUNT = 3;
+export const WHITE_HOLE_COUNT = 2; // repulsors: same falloff, opposite sign
 export const WELL_RADIUS = 460;
+export const WHITE_HOLE_RADIUS = 400;
 export const WELL_PULL = 700000;
 export const WELL_FALLOFF = 1.4;
 export const WELL_MIN_DIST = 45;

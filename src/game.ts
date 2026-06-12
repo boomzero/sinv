@@ -33,6 +33,9 @@ import {
   BOOSTCELL_COUNT,
   ASTEROID_COUNT,
   WELL_COUNT,
+  WHITE_HOLE_COUNT,
+  WHITE_HOLE_RADIUS,
+  HUNTER_SHOVE_DV,
   WELL_RADIUS,
   WELL_PULL,
   WELL_FALLOFF,
@@ -137,13 +140,30 @@ export class Game {
         Math.hypot(x - GATE_POS.x, y - GATE_POS.y) >= 900 &&
         farFrom(x, y, this.wells, 1100)
       ) {
-        this.wells.push({ x, y, radius: WELL_RADIUS });
+        this.wells.push({ x, y, radius: WELL_RADIUS, polarity: 1 });
       }
     }
+
+    // White holes: repulsors wedged between the black wells
+    const whiteHoles: GravityWell[] = [];
+    for (let tries = 0; whiteHoles.length < WHITE_HOLE_COUNT && tries < 300; tries++) {
+      const x = range(rng, 600, MAP_W - 600);
+      const y = range(rng, 500, MAP_H - 500);
+      if (
+        Math.hypot(x - PLAYER_SPAWN.x, y - PLAYER_SPAWN.y) >= 800 &&
+        Math.hypot(x - GATE_POS.x, y - GATE_POS.y) >= 700 &&
+        farFrom(x, y, this.wells, 1000) &&
+        farFrom(x, y, whiteHoles, 1000)
+      ) {
+        whiteHoles.push({ x, y, radius: WHITE_HOLE_RADIUS, polarity: -1 });
+      }
+    }
+    this.wells.push(...whiteHoles);
 
     // Gems: a ring of bonus gems around each well (risk/reward), rest scattered
     let gemsLeft = GEM_COUNT;
     for (const well of this.wells) {
+      if (well.polarity !== 1) continue; // only deadly wells pay bonus gems
       const ringCount = 4;
       const startA = rng() * Math.PI * 2;
       for (let i = 0; i < ringCount && gemsLeft > 0; i++, gemsLeft--) {
@@ -252,7 +272,8 @@ export class Game {
         if (dist < well.radius && dist > 1) {
           const accel =
             (WELL_PULL / Math.pow(Math.max(dist, WELL_MIN_DIST), WELL_FALLOFF)) *
-            factor;
+            factor *
+            well.polarity;
           const f = (accel * body.mass()) / dist;
           body.addForce({ x: dx * f, y: dy * f }, true);
         }
@@ -267,6 +288,7 @@ export class Game {
     if (this.state === 'playing' && this.player.alive) {
       const pp = this.player.body.translation();
       for (const well of this.wells) {
+        if (well.polarity !== 1) continue;
         if (Math.hypot(well.x - pp.x, well.y - pp.y) < WELL_CORE_RADIUS) {
           this.player.hull = 0;
           this.particles.burst(pp.x, pp.y, 30, 220, 0.9, 4, '#c873ff');
@@ -278,6 +300,7 @@ export class Game {
     for (const asteroid of this.asteroids) {
       const p = asteroid.body.translation();
       for (const well of this.wells) {
+        if (well.polarity !== 1) continue;
         if (Math.hypot(well.x - p.x, well.y - p.y) >= WELL_CORE_RADIUS) continue;
         this.particles.burst(p.x, p.y, 12, 180, 0.6, 4, '#c873ff');
         const ppos = this.player.body.translation();
@@ -335,8 +358,23 @@ export class Game {
       else if (b.kind === 'hunter') this.resolveHunterTouch();
       else if (b.kind === 'asteroid') this.asteroidImpact(b);
     } else if (a.kind === 'hunter' && b.kind === 'asteroid') {
-      const p = a.body.translation();
-      this.particles.burst(p.x, p.y, 6, 120, 0.4, 3, '#ff8866');
+      // The hunter bulldozes: any rock it touches gets launched along its
+      // direction of travel, turning the chase itself into a hazard.
+      const hv = a.body.linvel();
+      const hs = Math.hypot(hv.x, hv.y);
+      const hp = a.body.translation();
+      const ap = b.body.translation();
+      let dx = hs > 20 ? hv.x / hs : ap.x - hp.x;
+      let dy = hs > 20 ? hv.y / hs : ap.y - hp.y;
+      const dl = Math.hypot(dx, dy) || 1;
+      dx /= dl;
+      dy /= dl;
+      const m = b.body.mass();
+      b.body.applyImpulse(
+        { x: dx * HUNTER_SHOVE_DV * m, y: dy * HUNTER_SHOVE_DV * m },
+        true,
+      );
+      this.particles.burst(ap.x, ap.y, 10, 180, 0.5, 3, '#ff8866');
     }
   }
 

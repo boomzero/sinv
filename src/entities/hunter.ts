@@ -14,6 +14,7 @@ import {
   HUNTER_LUNGE_TELEGRAPH,
   HUNTER_LUNGE_IMPULSE,
   HUNTER_AVOID_DIST,
+  HUNTER_AVOID_MIN_RADIUS,
 } from '../constants';
 
 export function createHunter(ctx: PhysicsContext, x: number, y: number): Hunter {
@@ -91,9 +92,16 @@ export function updateHunter(
     hunter.collider,
   );
   if (hit) {
-    const urgency = 1 - hit.timeOfImpact / HUNTER_AVOID_DIST;
-    desired.x += hit.normal.x * maxSpeed * 1.6 * urgency;
-    desired.y += hit.normal.y * maxSpeed * 1.6 * urgency;
+    // Small rocks aren't worth dodging — the hunter plows through and shoves
+    // them aside on contact. Only big rocks and walls get steered around.
+    const obstacle = ctx.byCollider.get(hit.collider.handle);
+    const ramThrough =
+      obstacle?.kind === 'asteroid' && obstacle.radius < HUNTER_AVOID_MIN_RADIUS;
+    if (!ramThrough) {
+      const urgency = 1 - hit.timeOfImpact / HUNTER_AVOID_DIST;
+      desired.x += hit.normal.x * maxSpeed * 1.6 * urgency;
+      desired.y += hit.normal.y * maxSpeed * 1.6 * urgency;
+    }
   }
 
   const force = steerToward(vel, desired, body.mass(), HUNTER_GAIN, 1100);

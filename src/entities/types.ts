@@ -62,6 +62,8 @@ export interface GravityWell {
   x: number;
   y: number;
   radius: number;
+  /** 1 = black hole (pulls, deadly core), -1 = white hole (repels). */
+  polarity: 1 | -1;
 }
 
 export type Entity = Player | Hunter | Asteroid | Pickup | Gate | Wall;
