@@ -35,6 +35,7 @@ import {
   WELL_COUNT,
   WHITE_HOLE_COUNT,
   WHITE_HOLE_RADIUS,
+  WHITE_HOLE_PUSH_FACTOR,
   HUNTER_SHOVE_DV,
   WELL_RADIUS,
   WELL_PULL,
@@ -42,7 +43,6 @@ import {
   WELL_MIN_DIST,
   WELL_HUNTER_FACTOR,
   WELL_CORE_RADIUS,
-  ORB_HEAL,
   HULL_MAX,
   BOOST_MAX,
   BOOST_PICKUP_REFILL,
@@ -294,7 +294,8 @@ export class Game {
           const accel =
             (WELL_PULL / Math.pow(Math.max(dist, WELL_MIN_DIST), WELL_FALLOFF)) *
             factor *
-            well.polarity;
+            well.polarity *
+            (well.polarity === -1 ? WHITE_HOLE_PUSH_FACTOR : 1);
           const f = (accel * body.mass()) / dist;
           body.addForce({ x: dx * f, y: dy * f }, true);
         }
@@ -414,9 +415,9 @@ export class Game {
       }
       case 'orb': {
         this.player.mult = Math.min(MULT_MAX, this.player.mult + 1);
-        const healed =
-          Math.min(HULL_MAX, this.player.hull + ORB_HEAL) - this.player.hull;
-        this.player.hull += healed;
+        // Full repair — the healed amount still costs half its win bonus
+        const healed = HULL_MAX - this.player.hull;
+        this.player.hull = HULL_MAX;
         this.player.healedTotal += healed;
         this.orbsCollected++;
         this.particles.burst(pickup.x, pickup.y, 14, 180, 0.6, 4, '#ffd24a');
