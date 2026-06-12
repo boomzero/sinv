@@ -1,6 +1,6 @@
 import RAPIER from '@dimforge/rapier2d-compat';
 import { PhysicsContext, HUNTER_GROUPS, HUNTER_RAY_GROUPS } from '../physics';
-import type { Hunter, Player } from './types';
+import type { Hunter, Player, GravityWell } from './types';
 import type { Difficulty } from '../difficulty';
 import { pursue, steerToward, norm, len } from '../ai/steering';
 import {
@@ -68,6 +68,7 @@ export function updateHunter(
   orbsCollected: number,
   lungesUnlocked: boolean,
   difficulty: Difficulty,
+  wells: GravityWell[],
   dt: number,
 ): void {
   const { body } = hunter;
@@ -85,6 +86,23 @@ export function updateHunter(
   const maxSpeed = hunterMaxSpeed(playTime, orbsCollected, difficulty.hunterSpeedMult);
 
   const desired = pursue(pos, ppos, pvel, maxSpeed);
+
+  // Black-hole avoidance: the hunter resists the pull but can still be dragged
+  // into a core, so it actively steers away from any deadly well it's inside.
+  // The push ramps with depth^2, so it'll skim a field edge while chasing but
+  // bolt outward once it gets dangerously close to the center.
+  for (const well of wells) {
+    if (well.polarity !== 1) continue;
+    const dx = pos.x - well.x;
+    const dy = pos.y - well.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < well.radius && dist > 1) {
+      const depth = (well.radius - dist) / well.radius;
+      const push = maxSpeed * 2.6 * depth * depth;
+      desired.x += (dx / dist) * push;
+      desired.y += (dy / dist) * push;
+    }
+  }
 
   // Whisker: cast a ray along the heading; veer along the surface normal of
   // whatever rock or wall is in the way, stronger the closer it is.

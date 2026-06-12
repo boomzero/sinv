@@ -271,6 +271,7 @@ export class Game {
         this.orbsCollected,
         this.gemsCollected >= this.gemCount * HUNTER_LUNGE_GEM_FRACTION,
         this.difficulty,
+        this.wells,
         dt,
       );
     } else {
