@@ -47,10 +47,14 @@ export const SHIELD_COUNT = 5;
 export const BOOSTCELL_COUNT = 12;
 export const ASTEROID_COUNT = 35;
 
-// Gravity wells: acceleration = WELL_PULL / max(dist, 60), inside WELL_RADIUS
+// Gravity wells: acceleration = WELL_PULL / max(dist, WELL_MIN_DIST)^WELL_FALLOFF,
+// inside WELL_RADIUS. Gentle at the rim (~130) but past ~100 units the pull
+// exceeds even boosted thrust — dive too deep and the core takes you.
 export const WELL_COUNT = 3;
 export const WELL_RADIUS = 460;
-export const WELL_PULL = 60000;
+export const WELL_PULL = 700000;
+export const WELL_FALLOFF = 1.4;
+export const WELL_MIN_DIST = 45;
 // The hunter fights the pull far better than loose rocks — it can't be trapped
 export const WELL_HUNTER_FACTOR = 0.35;
 // Anything drifting into the core gets consumed; asteroids respawn elsewhere

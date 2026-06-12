@@ -34,6 +34,8 @@ import {
   WELL_COUNT,
   WELL_RADIUS,
   WELL_PULL,
+  WELL_FALLOFF,
+  WELL_MIN_DIST,
   WELL_HUNTER_FACTOR,
   WELL_CORE_RADIUS,
   ORB_HEAL,
@@ -246,7 +248,9 @@ export class Game {
         const dy = well.y - p.y;
         const dist = Math.hypot(dx, dy);
         if (dist < well.radius && dist > 1) {
-          const accel = (WELL_PULL / Math.max(dist, 60)) * factor;
+          const accel =
+            (WELL_PULL / Math.pow(Math.max(dist, WELL_MIN_DIST), WELL_FALLOFF)) *
+            factor;
           const f = (accel * body.mass()) / dist;
           body.addForce({ x: dx * f, y: dy * f }, true);
         }
@@ -258,6 +262,17 @@ export class Game {
   /** Rocks that fall into a well core are destroyed and respawn elsewhere, so
    *  debris can never pile up in the center (or trap the hunter there). */
   private consumeCoreAsteroids(): void {
+    if (this.state === 'playing' && this.player.alive) {
+      const pp = this.player.body.translation();
+      for (const well of this.wells) {
+        if (Math.hypot(well.x - pp.x, well.y - pp.y) < WELL_CORE_RADIUS) {
+          this.player.hull = 0;
+          this.particles.burst(pp.x, pp.y, 30, 220, 0.9, 4, '#c873ff');
+          this.lose('destroyed');
+          break;
+        }
+      }
+    }
     for (const asteroid of this.asteroids) {
       const p = asteroid.body.translation();
       for (const well of this.wells) {

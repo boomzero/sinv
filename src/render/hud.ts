@@ -209,7 +209,7 @@ export function drawOverlay(
     const lines = [
       `Collect all ${GEM_COUNT} gems, then escape through the exit gate.`,
       'A hunter ship is on your tail — if it touches you, you lose.',
-      'Asteroids damage your hull. Gravity wells pull everything in.',
+      'Asteroids damage your hull. Gravity well cores devour ships.',
       '',
       'W / ↑  thrust      A·D / ←·→  turn      S / ↓  retro',
       'SPACE  boost       gold orbs boost your multiplier and repair hull',
