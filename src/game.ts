@@ -54,7 +54,7 @@ import {
   HUNTER_LUNGE_GEM_FRACTION,
 } from './constants';
 
-export type GameState = 'menu' | 'playing' | 'gameover' | 'win';
+export type GameState = 'menu' | 'playing' | 'paused' | 'gameover' | 'win';
 export type LossReason = 'caught' | 'destroyed';
 
 const PLAYER_SPAWN = { x: 350, y: MAP_H - 350 };
@@ -96,6 +96,13 @@ export class Game {
   gate!: Gate;
   wells: GravityWell[] = [];
   playerFrame: PlayerFrame = { thrusting: false, boosting: false };
+
+  constructor() {
+    // Don't let the hunter close in while the player is on another tab
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && this.state === 'playing') this.state = 'paused';
+    });
+  }
 
   reset(seed: number): void {
     if (this.physics) this.physics.free();
@@ -236,6 +243,17 @@ export class Game {
     if (this.input.justPressed('KeyR') && this.state !== 'menu') {
       this.reset((Math.random() * 2 ** 31) | 0);
       this.state = 'playing';
+    }
+    if (
+      (this.input.justPressed('KeyP') || this.input.justPressed('Escape')) &&
+      (this.state === 'playing' || this.state === 'paused')
+    ) {
+      this.state = this.state === 'playing' ? 'paused' : 'playing';
+    }
+    if (this.state === 'paused') {
+      // Full freeze: no physics, no AI, no particles — only the overlay pulses
+      this.input.endFrame();
+      return;
     }
     if (this.state === 'menu') {
       // Difficulty selection rebuilds the map (asteroid density changes)

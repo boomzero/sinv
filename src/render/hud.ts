@@ -235,7 +235,7 @@ export function drawOverlay(
     // Controls
     ctx.fillStyle = 'rgba(232,244,255,0.7)';
     ctx.fillText(
-      'W thrust  ·  A·D turn  ·  S retro  ·  SPACE boost  ·  R restart',
+      'W thrust  ·  A·D turn  ·  S retro  ·  SPACE boost  ·  P pause  ·  R restart',
       w / 2,
       cy + 58,
     );
@@ -270,6 +270,19 @@ export function drawOverlay(
     ctx.font = `bold 20px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
     ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, cy + 210);
+  } else if (game.state === 'paused') {
+    ctx.fillStyle = '#e8f4ff';
+    ctx.font = `bold 44px ${FONT}`;
+    ctx.shadowColor = '#3fd6ff';
+    ctx.shadowBlur = 18;
+    ctx.fillText('PAUSED', w / 2, h / 2 - 24);
+    ctx.shadowBlur = 0;
+    ctx.font = `bold 16px ${FONT}`;
+    ctx.fillStyle = `rgba(232,244,255,${0.5 + 0.3 * Math.sin(game.time * 4)})`;
+    ctx.fillText('P / ESC  resume', w / 2, h / 2 + 28);
+    ctx.font = `14px ${FONT}`;
+    ctx.fillStyle = 'rgba(232,244,255,0.55)';
+    ctx.fillText('R  restart with a new map', w / 2, h / 2 + 56);
   } else if (game.state === 'gameover') {
     ctx.fillStyle = '#ff5050';
     ctx.font = `bold 44px ${FONT}`;
