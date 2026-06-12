@@ -38,9 +38,10 @@ export const HUNTER_LUNGE_GEM_FRACTION = 0.75; // lunges unlock past this collec
 export const HUNTER_AVOID_DIST = 190;
 
 // Pickups & map population
-export const GEM_COUNT = 40;
+export const GEM_COUNT = 25;
 export const GEM_SCORE = 100;
 export const ORB_COUNT = 8;
+export const ORB_HEAL = 25; // multiplier orbs also patch the hull
 export const MULT_MAX = 5;
 export const SHIELD_COUNT = 5;
 export const BOOSTCELL_COUNT = 12;
@@ -50,3 +51,7 @@ export const ASTEROID_COUNT = 35;
 export const WELL_COUNT = 3;
 export const WELL_RADIUS = 460;
 export const WELL_PULL = 60000;
+// The hunter fights the pull far better than loose rocks — it can't be trapped
+export const WELL_HUNTER_FACTOR = 0.35;
+// Anything drifting into the core gets consumed; asteroids respawn elsewhere
+export const WELL_CORE_RADIUS = 70;

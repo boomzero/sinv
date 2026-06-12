@@ -207,13 +207,13 @@ export function drawOverlay(
     ctx.font = `14px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.85)';
     const lines = [
-      'Collect all 40 gems, then escape through the exit gate.',
+      `Collect all ${GEM_COUNT} gems, then escape through the exit gate.`,
       'A hunter ship is on your tail — if it touches you, you lose.',
       'Asteroids damage your hull. Gravity wells pull everything in.',
       '',
       'W / ↑  thrust      A·D / ←·→  turn      S / ↓  retro',
-      'SPACE  boost       gold orbs raise your score multiplier',
-      'shields absorb one hit — even from the hunter',
+      'SPACE  boost       gold orbs boost your multiplier and repair hull',
+      'shields absorb one hit — rock or hunter alike',
     ];
     lines.forEach((line, i) => ctx.fillText(line, w / 2, h / 2 - 36 + i * 24));
 

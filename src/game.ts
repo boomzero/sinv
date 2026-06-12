@@ -34,6 +34,10 @@ import {
   WELL_COUNT,
   WELL_RADIUS,
   WELL_PULL,
+  WELL_HUNTER_FACTOR,
+  WELL_CORE_RADIUS,
+  ORB_HEAL,
+  HULL_MAX,
   BOOST_MAX,
   BOOST_PICKUP_REFILL,
   DAMAGE_SPEED_THRESHOLD,
@@ -141,7 +145,8 @@ export class Game {
       const startA = rng() * Math.PI * 2;
       for (let i = 0; i < ringCount && gemsLeft > 0; i++, gemsLeft--) {
         const a = startA + (i / ringCount) * Math.PI * 2;
-        const r = range(rng, 170, 230);
+        // Outside the strong-pull zone so grabbing them is a dive, not a death
+        const r = range(rng, 280, 360);
         this.pickups.push(
           createPickup(
             this.physics,
@@ -235,15 +240,50 @@ export class Game {
     ];
     for (const body of bodies) {
       const p = body.translation();
+      const factor = body === this.hunter.body ? WELL_HUNTER_FACTOR : 1;
       for (const well of this.wells) {
         const dx = well.x - p.x;
         const dy = well.y - p.y;
         const dist = Math.hypot(dx, dy);
         if (dist < well.radius && dist > 1) {
-          const accel = WELL_PULL / Math.max(dist, 60);
+          const accel = (WELL_PULL / Math.max(dist, 60)) * factor;
           const f = (accel * body.mass()) / dist;
           body.addForce({ x: dx * f, y: dy * f }, true);
         }
+      }
+    }
+    this.consumeCoreAsteroids();
+  }
+
+  /** Rocks that fall into a well core are destroyed and respawn elsewhere, so
+   *  debris can never pile up in the center (or trap the hunter there). */
+  private consumeCoreAsteroids(): void {
+    for (const asteroid of this.asteroids) {
+      const p = asteroid.body.translation();
+      for (const well of this.wells) {
+        if (Math.hypot(well.x - p.x, well.y - p.y) >= WELL_CORE_RADIUS) continue;
+        this.particles.burst(p.x, p.y, 12, 180, 0.6, 4, '#c873ff');
+        const ppos = this.player.body.translation();
+        let x = MAP_W / 2;
+        let y = MAP_H / 2;
+        for (let tries = 0; tries < 40; tries++) {
+          const cx = 180 + Math.random() * (MAP_W - 360);
+          const cy = 180 + Math.random() * (MAP_H - 360);
+          if (
+            Math.hypot(cx - ppos.x, cy - ppos.y) > 600 &&
+            this.wells.every((w) => Math.hypot(cx - w.x, cy - w.y) > WELL_RADIUS)
+          ) {
+            x = cx;
+            y = cy;
+            break;
+          }
+        }
+        asteroid.body.setTranslation({ x, y }, true);
+        asteroid.body.setLinvel(
+          { x: (Math.random() - 0.5) * 140, y: (Math.random() - 0.5) * 140 },
+          true,
+        );
+        break;
       }
     }
   }
@@ -295,6 +335,7 @@ export class Game {
         break;
       case 'orb':
         this.player.mult = Math.min(MULT_MAX, this.player.mult + 1);
+        this.player.hull = Math.min(HULL_MAX, this.player.hull + ORB_HEAL);
         this.orbsCollected++;
         this.particles.burst(pickup.x, pickup.y, 14, 180, 0.6, 4, '#ffd24a');
         break;
@@ -323,6 +364,13 @@ export class Game {
     );
     if (dmg <= 0) return;
     this.player.damageCooldown = DAMAGE_COOLDOWN;
+    if (this.player.shield) {
+      this.player.shield = false;
+      this.camera.addShake(5);
+      const sp = this.player.body.translation();
+      this.particles.burst(sp.x, sp.y, 18, 240, 0.6, 4, '#6699ff');
+      return;
+    }
     this.player.hull -= dmg;
     this.player.mult = 1;
     this.camera.addShake(4 + dmg * 0.5);
