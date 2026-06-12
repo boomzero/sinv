@@ -1,5 +1,6 @@
 import type { Game } from '../game';
-import { MAP_W, MAP_H, GEM_COUNT, HULL_MAX, BOOST_MAX, HUNTER_WARMUP } from '../constants';
+import { MAP_W, MAP_H, GEM_COUNT, HULL_MAX, BOOST_MAX } from '../constants';
+import { DIFFICULTIES } from '../difficulty';
 
 const FONT = 'monospace';
 
@@ -36,8 +37,8 @@ export function drawHud(
   // Status banners (top-center)
   ctx.textAlign = 'center';
   ctx.font = `bold 16px ${FONT}`;
-  if (game.state === 'playing' && game.playT < HUNTER_WARMUP) {
-    const left = Math.ceil(HUNTER_WARMUP - game.playT);
+  if (game.state === 'playing' && game.playT < game.difficulty.hunterWarmup) {
+    const left = Math.ceil(game.difficulty.hunterWarmup - game.playT);
     ctx.fillStyle = `rgba(255,90,90,${0.6 + 0.4 * Math.sin(game.time * 6)})`;
     ctx.fillText(`HUNTER ONLINE IN ${left}`, w / 2, 16);
   } else if (game.gate.active && game.state === 'playing') {
@@ -222,9 +223,33 @@ export function drawOverlay(
     ];
     lines.forEach((line, i) => ctx.fillText(line, w / 2, h / 2 - 36 + i * 24));
 
+    // Difficulty selector: [1] EASY  [2] NORMAL  [3] HARD
+    ctx.font = `bold 16px ${FONT}`;
+    const labels = DIFFICULTIES.map((d, i) => `[${i + 1}] ${d.name}`);
+    const gap = 36;
+    const widths = labels.map((s) => ctx.measureText(s).width);
+    const total = widths.reduce((a, b) => a + b, 0) + gap * (labels.length - 1);
+    let x = w / 2 - total / 2;
+    labels.forEach((label, i) => {
+      const selected = i === game.difficultyIndex;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = selected
+        ? '#ffd24a'
+        : 'rgba(232,244,255,0.45)';
+      ctx.fillText(label, x, h / 2 + 196);
+      if (selected) {
+        ctx.fillRect(x, h / 2 + 208, widths[i], 2);
+      }
+      x += widths[i] + gap;
+    });
+    ctx.textAlign = 'center';
+    ctx.font = `13px ${FONT}`;
+    ctx.fillStyle = 'rgba(232,244,255,0.55)';
+    ctx.fillText(game.difficulty.blurb, w / 2, h / 2 + 228);
+
     ctx.font = `bold 20px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, h / 2 + 224);
+    ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, h / 2 + 268);
   } else if (game.state === 'gameover') {
     ctx.fillStyle = '#ff5050';
     ctx.font = `bold 44px ${FONT}`;

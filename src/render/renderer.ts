@@ -4,7 +4,6 @@ import { drawStarfield } from './starfield';
 import {
   MAP_W,
   MAP_H,
-  HUNTER_WARMUP,
   PLAYER_RADIUS,
   HUNTER_RADIUS,
   GEM_COUNT,
@@ -324,7 +323,8 @@ function drawHunter(ctx: CanvasRenderingContext2D, game: Game): void {
   const vel = hunter.body.linvel();
   const speed = Math.hypot(vel.x, vel.y);
   const angle = speed > 5 ? Math.atan2(vel.y, vel.x) : game.time * 0.3;
-  const warming = game.state === 'playing' && game.playT < HUNTER_WARMUP;
+  const warming =
+    game.state === 'playing' && game.playT < game.difficulty.hunterWarmup;
   const stunned = game.playT < hunter.stunnedUntil;
 
   ctx.save();

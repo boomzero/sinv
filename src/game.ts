@@ -3,6 +3,7 @@ import type { EventQueue } from '@dimforge/rapier2d-compat';
 import { PhysicsContext, createWalls } from './physics';
 import { Input } from './input';
 import { Camera } from './camera';
+import { DIFFICULTIES, loadDifficultyIndex } from './difficulty';
 import { Particles } from './render/particles';
 import { drawScene } from './render/renderer';
 import { drawHud, drawOverlay } from './render/hud';
@@ -31,7 +32,6 @@ import {
   MULT_MAX,
   SHIELD_COUNT,
   BOOSTCELL_COUNT,
-  ASTEROID_COUNT,
   WELL_COUNT,
   WHITE_HOLE_COUNT,
   WHITE_HOLE_RADIUS,
@@ -70,8 +70,13 @@ export class Game {
   state: GameState = 'menu';
   lossReason: LossReason = 'caught';
   mouseSteer = localStorage.getItem('sinv-mouse') === '1';
+  difficultyIndex = loadDifficultyIndex();
   private viewW = 0;
   private viewH = 0;
+
+  get difficulty() {
+    return DIFFICULTIES[this.difficultyIndex];
+  }
   time = 0; // wall time since boot (for animation)
   playT = 0; // time since this run started
   score = 0;
@@ -208,7 +213,7 @@ export class Game {
     scatter('shield', SHIELD_COUNT, 500);
     scatter('boost', BOOSTCELL_COUNT, 300);
 
-    for (let i = 0; i < ASTEROID_COUNT; i++) {
+    for (let i = 0; i < this.difficulty.asteroidCount; i++) {
       const p = sample(450);
       if (Math.hypot(p.x - HUNTER_SPAWN.x, p.y - HUNTER_SPAWN.y) < 250) continue;
       // Mostly small rocks, a few big ones
@@ -228,9 +233,19 @@ export class Game {
       this.reset((Math.random() * 2 ** 31) | 0);
       this.state = 'playing';
     }
-    if (this.state === 'menu' && this.input.justPressed('Enter')) {
-      this.state = 'playing';
-      this.playT = 0;
+    if (this.state === 'menu') {
+      // Difficulty selection rebuilds the map (asteroid density changes)
+      for (let d = 0; d < DIFFICULTIES.length; d++) {
+        if (this.input.justPressed(`Digit${d + 1}`) && d !== this.difficultyIndex) {
+          this.difficultyIndex = d;
+          localStorage.setItem('sinv-diff', String(d));
+          this.reset((Math.random() * 2 ** 31) | 0);
+        }
+      }
+      if (this.input.justPressed('Enter')) {
+        this.state = 'playing';
+        this.playT = 0;
+      }
     }
 
     if (this.state === 'playing') {
@@ -251,6 +266,7 @@ export class Game {
         this.playT,
         this.orbsCollected,
         this.gemsCollected >= GEM_COUNT * HUNTER_LUNGE_GEM_FRACTION,
+        this.difficulty,
         dt,
       );
     } else {
@@ -316,6 +332,25 @@ export class Game {
           this.player.hull = 0;
           this.particles.burst(pp.x, pp.y, 30, 220, 0.9, 4, '#c873ff');
           this.lose('destroyed');
+          break;
+        }
+      }
+    }
+    // Despite resisting the pull, the hunter can still get dragged into a
+    // core mid-chase — eject it back to its spawn corner instead of letting
+    // it sit pinned in the singularity.
+    if (this.state === 'playing') {
+      const hp = this.hunter.body.translation();
+      for (const well of this.wells) {
+        if (well.polarity !== 1) continue;
+        if (Math.hypot(well.x - hp.x, well.y - hp.y) < WELL_CORE_RADIUS) {
+          this.particles.burst(hp.x, hp.y, 24, 240, 0.8, 4, '#ff5050');
+          this.hunter.body.setTranslation(
+            { x: HUNTER_SPAWN.x, y: HUNTER_SPAWN.y },
+            true,
+          );
+          this.hunter.body.setLinvel({ x: 0, y: 0 }, true);
+          this.hunter.stunnedUntil = this.playT + 2; // re-materializing
           break;
         }
       }

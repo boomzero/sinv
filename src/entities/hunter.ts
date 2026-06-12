@@ -1,6 +1,7 @@
 import RAPIER from '@dimforge/rapier2d-compat';
 import { PhysicsContext, HUNTER_GROUPS, HUNTER_RAY_GROUPS } from '../physics';
 import type { Hunter, Player } from './types';
+import type { Difficulty } from '../difficulty';
 import { pursue, steerToward, norm, len } from '../ai/steering';
 import {
   HUNTER_RADIUS,
@@ -9,7 +10,6 @@ import {
   HUNTER_SPEED_PER_ORB,
   HUNTER_SPEED_CAP,
   HUNTER_GAIN,
-  HUNTER_WARMUP,
   HUNTER_LUNGE_PERIOD,
   HUNTER_LUNGE_TELEGRAPH,
   HUNTER_LUNGE_IMPULSE,
@@ -45,12 +45,18 @@ export function createHunter(ctx: PhysicsContext, x: number, y: number): Hunter 
   return hunter;
 }
 
-export function hunterMaxSpeed(playTime: number, orbsCollected: number): number {
-  return Math.min(
-    HUNTER_SPEED_CAP,
-    HUNTER_BASE_SPEED +
-      (playTime / 15) * HUNTER_SPEED_PER_15S +
-      orbsCollected * HUNTER_SPEED_PER_ORB,
+export function hunterMaxSpeed(
+  playTime: number,
+  orbsCollected: number,
+  speedMult: number,
+): number {
+  return (
+    Math.min(
+      HUNTER_SPEED_CAP,
+      HUNTER_BASE_SPEED +
+        (playTime / 15) * HUNTER_SPEED_PER_15S +
+        orbsCollected * HUNTER_SPEED_PER_ORB,
+    ) * speedMult
   );
 }
 
@@ -61,12 +67,13 @@ export function updateHunter(
   playTime: number,
   orbsCollected: number,
   lungesUnlocked: boolean,
+  difficulty: Difficulty,
   dt: number,
 ): void {
   const { body } = hunter;
   body.resetForces(true);
 
-  if (playTime < HUNTER_WARMUP || playTime < hunter.stunnedUntil) {
+  if (playTime < difficulty.hunterWarmup || playTime < hunter.stunnedUntil) {
     hunter.telegraph = 0;
     return;
   }
@@ -75,7 +82,7 @@ export function updateHunter(
   const vel = body.linvel();
   const ppos = player.body.translation();
   const pvel = player.body.linvel();
-  const maxSpeed = hunterMaxSpeed(playTime, orbsCollected);
+  const maxSpeed = hunterMaxSpeed(playTime, orbsCollected, difficulty.hunterSpeedMult);
 
   const desired = pursue(pos, ppos, pvel, maxSpeed);
 
