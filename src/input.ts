@@ -1,6 +1,9 @@
 export class Input {
   private down = new Set<string>();
   private just = new Set<string>();
+  mouseX = 0;
+  mouseY = 0;
+  mouseDown = false;
 
   constructor() {
     window.addEventListener('keydown', (e) => {
@@ -15,7 +18,20 @@ export class Input {
       this.down.add(e.code);
     });
     window.addEventListener('keyup', (e) => this.down.delete(e.code));
-    window.addEventListener('blur', () => this.down.clear());
+    window.addEventListener('blur', () => {
+      this.down.clear();
+      this.mouseDown = false;
+    });
+    window.addEventListener('mousemove', (e) => {
+      this.mouseX = e.clientX;
+      this.mouseY = e.clientY;
+    });
+    window.addEventListener('mousedown', (e) => {
+      if (e.button === 0) this.mouseDown = true;
+    });
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 0) this.mouseDown = false;
+    });
   }
 
   get thrust(): boolean {

@@ -68,6 +68,9 @@ export class Game {
 
   state: GameState = 'menu';
   lossReason: LossReason = 'caught';
+  mouseSteer = localStorage.getItem('sinv-mouse') === '1';
+  private viewW = 0;
+  private viewH = 0;
   time = 0; // wall time since boot (for animation)
   playT = 0; // time since this run started
   score = 0;
@@ -209,6 +212,10 @@ export class Game {
   fixedUpdate(dt: number): void {
     this.time += dt;
 
+    if (this.input.justPressed('KeyM')) {
+      this.mouseSteer = !this.mouseSteer;
+      localStorage.setItem('sinv-mouse', this.mouseSteer ? '1' : '0');
+    }
     if (this.input.justPressed('KeyR') && this.state !== 'menu') {
       this.reset((Math.random() * 2 ** 31) | 0);
       this.state = 'playing';
@@ -220,7 +227,14 @@ export class Game {
 
     if (this.state === 'playing') {
       this.playT += dt;
-      this.playerFrame = updatePlayer(this.player, this.input, dt);
+      let aimAngle: number | null = null;
+      if (this.mouseSteer && this.viewW > 0) {
+        const wx = this.input.mouseX - this.viewW / 2 + this.camera.x;
+        const wy = this.input.mouseY - this.viewH / 2 + this.camera.y;
+        const pp = this.player.body.translation();
+        aimAngle = Math.atan2(wy - pp.y, wx - pp.x);
+      }
+      this.playerFrame = updatePlayer(this.player, this.input, dt, aimAngle);
       this.emitEngineTrail();
       updateHunter(
         this.hunter,
@@ -490,6 +504,8 @@ export class Game {
   }
 
   render(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+    this.viewW = w;
+    this.viewH = h;
     drawScene(ctx, this, w, h);
     drawHud(ctx, this, w, h);
     drawOverlay(ctx, this, w, h);

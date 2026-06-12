@@ -218,12 +218,13 @@ export function drawOverlay(
       'W / ↑  thrust      A·D / ←·→  turn      S / ↓  retro',
       'SPACE  boost       gold orbs boost your multiplier and repair hull',
       'shields absorb one hit — rock or hunter alike',
+      `M  mouse steering: ${game.mouseSteer ? 'ON' : 'OFF'}  — aim with cursor, hold click to thrust`,
     ];
     lines.forEach((line, i) => ctx.fillText(line, w / 2, h / 2 - 36 + i * 24));
 
     ctx.font = `bold 20px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, h / 2 + 196);
+    ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, h / 2 + 224);
   } else if (game.state === 'gameover') {
     ctx.fillStyle = '#ff5050';
     ctx.font = `bold 44px ${FONT}`;

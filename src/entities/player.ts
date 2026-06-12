@@ -51,14 +51,29 @@ export interface PlayerFrame {
   boosting: boolean;
 }
 
-export function updatePlayer(player: Player, input: Input, dt: number): PlayerFrame {
+export function updatePlayer(
+  player: Player,
+  input: Input,
+  dt: number,
+  aimAngle: number | null = null,
+): PlayerFrame {
   const { body } = player;
   player.damageCooldown = Math.max(0, player.damageCooldown - dt);
 
-  body.setAngvel(input.turn * PLAYER_TURN_SPEED, true);
+  if (input.turn !== 0 || aimAngle === null) {
+    // Keyboard steering always wins when actively used
+    body.setAngvel(input.turn * PLAYER_TURN_SPEED, true);
+  } else {
+    // Mouse steering: rotate toward the cursor, snappier than key turning
+    let diff = aimAngle - body.rotation();
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    const cap = PLAYER_TURN_SPEED * 1.5;
+    body.setAngvel(Math.max(-cap, Math.min(cap, diff * 10)), true);
+  }
   body.resetForces(true);
 
-  const boosting = input.boost && input.thrust && player.boostFuel > 0;
+  const thrusting = input.thrust || (aimAngle !== null && input.mouseDown);
+  const boosting = input.boost && thrusting && player.boostFuel > 0;
   if (boosting) {
     player.boostFuel = Math.max(0, player.boostFuel - BOOST_DRAIN * dt);
   } else {
@@ -66,7 +81,7 @@ export function updatePlayer(player: Player, input: Input, dt: number): PlayerFr
   }
 
   let accel = 0;
-  if (input.thrust) accel += PLAYER_ACCEL * (boosting ? BOOST_MULT : 1);
+  if (thrusting) accel += PLAYER_ACCEL * (boosting ? BOOST_MULT : 1);
   if (input.reverse) accel -= PLAYER_REVERSE_ACCEL;
 
   if (accel !== 0) {
@@ -75,5 +90,5 @@ export function updatePlayer(player: Player, input: Input, dt: number): PlayerFr
     body.addForce({ x: Math.cos(rot) * accel * m, y: Math.sin(rot) * accel * m }, true);
   }
 
-  return { thrusting: input.thrust, boosting };
+  return { thrusting, boosting };
 }
