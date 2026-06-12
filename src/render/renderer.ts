@@ -1,13 +1,7 @@
 import type { Game } from '../game';
 import type { Asteroid, Pickup, GravityWell, PickupType } from '../entities/types';
 import { drawStarfield } from './starfield';
-import {
-  MAP_W,
-  MAP_H,
-  PLAYER_RADIUS,
-  HUNTER_RADIUS,
-  GEM_COUNT,
-} from '../constants';
+import { MAP_W, MAP_H, PLAYER_RADIUS, HUNTER_RADIUS } from '../constants';
 import { GATE_RADIUS } from '../entities/pickup';
 
 // --- Pre-rendered glow sprites for pickups (shadowBlur is expensive live) ---
@@ -224,15 +218,15 @@ function drawGate(ctx: CanvasRenderingContext2D, game: Game): void {
     const dist = Math.hypot(pp.x - gate.x, pp.y - gate.y);
     if (dist < 420) {
       const fade = Math.min(1, (420 - dist) / 120);
-      const left = GEM_COUNT - game.gemsCollected;
+      const left = game.gemCount - game.gemsCollected;
       ctx.save();
       ctx.font = 'bold 14px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = `rgba(140,220,170,${0.85 * fade})`;
       ctx.fillText(
-        left === GEM_COUNT
-          ? `EXIT GATE — COLLECT ALL ${GEM_COUNT} GEMS TO UNLOCK`
+        left === game.gemCount
+          ? `EXIT GATE — COLLECT ALL ${game.gemCount} GEMS TO UNLOCK`
           : `EXIT GATE — ${left} GEM${left === 1 ? '' : 'S'} REMAINING`,
         gate.x,
         gate.y - GATE_RADIUS - 28,

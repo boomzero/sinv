@@ -1,4 +1,4 @@
-import { HUNTER_WARMUP, ASTEROID_COUNT } from './constants';
+import { HUNTER_WARMUP, ASTEROID_COUNT, GEM_COUNT } from './constants';
 
 export interface Difficulty {
   name: string;
@@ -8,6 +8,8 @@ export interface Difficulty {
   hunterWarmup: number;
   /** Number of asteroids littering the map. */
   asteroidCount: number;
+  /** Gems needed to unlock the exit gate. */
+  gemCount: number;
   blurb: string;
 }
 
@@ -17,13 +19,15 @@ export const DIFFICULTIES: Difficulty[] = [
     hunterSpeedMult: 0.8,
     hunterWarmup: 8,
     asteroidCount: 24,
-    blurb: 'slower hunter · long warm-up · sparse field',
+    gemCount: 16,
+    blurb: 'slower hunter · long warm-up · fewer gems · sparse field',
   },
   {
     name: 'NORMAL',
     hunterSpeedMult: 1,
     hunterWarmup: HUNTER_WARMUP,
     asteroidCount: ASTEROID_COUNT,
+    gemCount: GEM_COUNT,
     blurb: 'the standard hunt',
   },
   {
@@ -31,6 +35,7 @@ export const DIFFICULTIES: Difficulty[] = [
     hunterSpeedMult: 1.28,
     hunterWarmup: 3,
     asteroidCount: 46,
+    gemCount: GEM_COUNT,
     blurb: 'fast hunter · short warm-up · dense field',
   },
 ];

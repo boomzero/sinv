@@ -1,5 +1,5 @@
 import type { Game } from '../game';
-import { MAP_W, MAP_H, GEM_COUNT, HULL_MAX, BOOST_MAX } from '../constants';
+import { MAP_W, MAP_H, HULL_MAX, BOOST_MAX } from '../constants';
 import { DIFFICULTIES } from '../difficulty';
 
 const FONT = 'monospace';
@@ -24,7 +24,7 @@ export function drawHud(
   ctx.fillStyle = game.player.mult > 1 ? '#ffd24a' : 'rgba(232,244,255,0.5)';
   ctx.fillText(`×${game.player.mult}`, 16, 40);
   ctx.fillStyle = '#41ffe0';
-  ctx.fillText(`GEMS ${game.gemsCollected}/${GEM_COUNT}`, 70, 40);
+  ctx.fillText(`GEMS ${game.gemsCollected}/${game.gemCount}`, 70, 40);
 
   // Hull / boost bars (bottom-left)
   drawBar(ctx, 16, h - 52, 180, 10, game.player.hull / HULL_MAX, hullColor(game.player.hull / HULL_MAX), 'HULL');
@@ -210,7 +210,7 @@ export function drawOverlay(
     ctx.font = `14px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.85)';
     const lines = [
-      `Collect all ${GEM_COUNT} gems, then escape through the exit gate.`,
+      `Collect all ${game.gemCount} gems, then escape through the exit gate.`,
       'A hunter ship is on your tail — if it touches you, you lose.',
       'Asteroids damage your hull. Gravity well cores devour ships —',
       'but the big gems ringing them are worth triple.',
@@ -267,7 +267,7 @@ export function drawOverlay(
     ctx.font = `16px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.7)';
     ctx.fillText(
-      `gems ${game.gemsCollected}/${GEM_COUNT}   ·   survived ${Math.floor(game.playT)}s`,
+      `gems ${game.gemsCollected}/${game.gemCount}   ·   survived ${Math.floor(game.playT)}s`,
       w / 2,
       h / 2 + 36,
     );

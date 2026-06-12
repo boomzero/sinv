@@ -25,7 +25,6 @@ import type {
 import {
   MAP_W,
   MAP_H,
-  GEM_COUNT,
   GEM_SCORE,
   GEM_BONUS_MULT,
   ORB_COUNT,
@@ -76,6 +75,11 @@ export class Game {
 
   get difficulty() {
     return DIFFICULTIES[this.difficultyIndex];
+  }
+
+  /** Gems needed to unlock the exit gate this run. */
+  get gemCount() {
+    return this.difficulty.gemCount;
   }
   time = 0; // wall time since boot (for animation)
   playT = 0; // time since this run started
@@ -177,7 +181,7 @@ export class Game {
     this.wells.push(...whiteHoles);
 
     // Gems: a ring of bonus gems around each well (risk/reward), rest scattered
-    let gemsLeft = GEM_COUNT;
+    let gemsLeft = this.gemCount;
     for (const well of this.wells) {
       if (well.polarity !== 1) continue; // only deadly wells pay bonus gems
       const ringCount = 4;
@@ -265,7 +269,7 @@ export class Game {
         this.physics,
         this.playT,
         this.orbsCollected,
-        this.gemsCollected >= GEM_COUNT * HUNTER_LUNGE_GEM_FRACTION,
+        this.gemsCollected >= this.gemCount * HUNTER_LUNGE_GEM_FRACTION,
         this.difficulty,
         dt,
       );
@@ -444,7 +448,7 @@ export class Game {
         const value = pickup.bonus ? GEM_SCORE * GEM_BONUS_MULT : GEM_SCORE;
         this.score += value * this.player.mult;
         this.gemsCollected++;
-        if (this.gemsCollected >= GEM_COUNT) this.gate.active = true;
+        if (this.gemsCollected >= this.gemCount) this.gate.active = true;
         const n = pickup.bonus ? 20 : 10;
         this.particles.burst(pickup.x, pickup.y, n, 150, 0.5, 3, '#41ffe0');
         break;
