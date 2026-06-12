@@ -218,21 +218,21 @@ export function drawOverlay(
     );
     ctx.fillText('One touch from the hunter ends the run.', w / 2, cy - 46);
 
-    // Hazard tips — quieter, scannable
+    // Hazard / pickup tips — quieter, scannable
     ctx.font = `13px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.5)';
     ctx.fillText(
-      'asteroids chip your hull  ·  black hole cores devour ships',
+      'asteroids chip your hull  ·  black hole cores devour ships  ·  white holes shove you away',
       w / 2,
       cy - 4,
     );
     ctx.fillText(
-      'gems ringing wells pay triple  ·  white holes shove you away',
+      'cyan gems  +100 × mult  (×3 near wells)  ·  shields  absorb one hit & stun the hunter 3 s',
       w / 2,
       cy + 18,
     );
     ctx.fillText(
-      'gold orbs  +1 multiplier (max ×5)  ·  +25 hull repair',
+      'gold orbs  +1 multiplier (max ×5) · +25 hull  ·  lightning  refills boost tank',
       w / 2,
       cy + 38,
     );
