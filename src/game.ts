@@ -137,12 +137,12 @@ export class Game {
         if (
           Math.hypot(x - PLAYER_SPAWN.x, y - PLAYER_SPAWN.y) >= minFromSpawn &&
           Math.hypot(x - GATE_POS.x, y - GATE_POS.y) >= 200 &&
-          // Keep spawns out of white-hole fields: the push makes anything
-          // placed inside effectively unreachable
+          // Keep random spawns out of gravity fields: white holes push
+          // anything placed inside out of reach, and black wells would
+          // hand out free deep-field gems next to the deliberate bonus
+          // rings (or just feed rocks straight into the core)
           this.wells.every(
-            (w) =>
-              w.polarity === 1 ||
-              Math.hypot(x - w.x, y - w.y) >= w.radius + 40,
+            (w) => Math.hypot(x - w.x, y - w.y) >= w.radius + 40,
           )
         ) {
           return { x, y };
