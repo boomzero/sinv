@@ -197,59 +197,79 @@ export function drawOverlay(
   ctx.textBaseline = 'middle';
 
   if (game.state === 'menu') {
+    const cy = h / 2;
     ctx.fillStyle = '#9beaff';
     ctx.font = `bold 64px ${FONT}`;
     ctx.shadowColor = '#3fd6ff';
     ctx.shadowBlur = 24;
-    ctx.fillText('S I N V', w / 2, h / 2 - 130);
+    ctx.fillText('S I N V', w / 2, cy - 168);
     ctx.shadowBlur = 0;
-    ctx.font = `bold 18px ${FONT}`;
-    ctx.fillStyle = '#e8f4ff';
-    ctx.fillText('SPACE SCAVENGER', w / 2, h / 2 - 86);
+    ctx.font = `bold 16px ${FONT}`;
+    ctx.fillStyle = 'rgba(232,244,255,0.8)';
+    ctx.fillText('SPACE SCAVENGER', w / 2, cy - 124);
 
-    ctx.font = `14px ${FONT}`;
-    ctx.fillStyle = 'rgba(232,244,255,0.85)';
-    const lines = [
-      `Collect all ${game.gemCount} gems, then escape through the exit gate.`,
-      'A hunter ship is on your tail — if it touches you, you lose.',
-      'Asteroids damage your hull. Gravity well cores devour ships —',
-      'but the big gems ringing them are worth triple.',
-      'White holes repel — ride the push to slingshot away.',
-      '',
-      'W / ↑  thrust      A·D / ←·→  turn      S / ↓  retro',
-      'SPACE  boost       gold orbs boost your multiplier and repair hull',
-      'shields absorb one hit — rock or hunter alike',
-      `M  mouse steering: ${game.mouseSteer ? 'ON' : 'OFF'}  — aim with cursor, hold click to thrust`,
-    ];
-    lines.forEach((line, i) => ctx.fillText(line, w / 2, h / 2 - 36 + i * 24));
+    // Objective — the two sentences that matter
+    ctx.font = `15px ${FONT}`;
+    ctx.fillStyle = 'rgba(232,244,255,0.95)';
+    ctx.fillText(
+      `Collect all ${game.gemCount} gems, unlock the exit gate, escape.`,
+      w / 2,
+      cy - 70,
+    );
+    ctx.fillText('One touch from the hunter ends the run.', w / 2, cy - 46);
+
+    // Hazard tips — quieter, scannable
+    ctx.font = `13px ${FONT}`;
+    ctx.fillStyle = 'rgba(232,244,255,0.5)';
+    ctx.fillText(
+      'asteroids chip your hull  ·  black hole cores devour ships',
+      w / 2,
+      cy - 4,
+    );
+    ctx.fillText(
+      'gems ringing wells pay triple  ·  white holes shove you away',
+      w / 2,
+      cy + 18,
+    );
+
+    // Controls
+    ctx.fillStyle = 'rgba(232,244,255,0.7)';
+    ctx.fillText(
+      'W thrust  ·  A·D turn  ·  S retro  ·  SPACE boost  ·  R restart',
+      w / 2,
+      cy + 58,
+    );
+    ctx.fillText(
+      `M mouse steering (${game.mouseSteer ? 'ON' : 'OFF'}) — aim with cursor, hold click to thrust`,
+      w / 2,
+      cy + 80,
+    );
 
     // Difficulty selector: [1] EASY  [2] NORMAL  [3] HARD
     ctx.font = `bold 16px ${FONT}`;
     const labels = DIFFICULTIES.map((d, i) => `[${i + 1}] ${d.name}`);
-    const gap = 36;
+    const gap = 44;
     const widths = labels.map((s) => ctx.measureText(s).width);
     const total = widths.reduce((a, b) => a + b, 0) + gap * (labels.length - 1);
     let x = w / 2 - total / 2;
     labels.forEach((label, i) => {
       const selected = i === game.difficultyIndex;
       ctx.textAlign = 'left';
-      ctx.fillStyle = selected
-        ? '#ffd24a'
-        : 'rgba(232,244,255,0.45)';
-      ctx.fillText(label, x, h / 2 + 196);
+      ctx.fillStyle = selected ? '#ffd24a' : 'rgba(232,244,255,0.4)';
+      ctx.fillText(label, x, cy + 128);
       if (selected) {
-        ctx.fillRect(x, h / 2 + 208, widths[i], 2);
+        ctx.fillRect(x, cy + 140, widths[i], 2);
       }
       x += widths[i] + gap;
     });
     ctx.textAlign = 'center';
-    ctx.font = `13px ${FONT}`;
-    ctx.fillStyle = 'rgba(232,244,255,0.55)';
-    ctx.fillText(game.difficulty.blurb, w / 2, h / 2 + 228);
+    ctx.font = `12px ${FONT}`;
+    ctx.fillStyle = 'rgba(232,244,255,0.45)';
+    ctx.fillText(game.difficulty.blurb, w / 2, cy + 162);
 
     ctx.font = `bold 20px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, h / 2 + 268);
+    ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, cy + 210);
   } else if (game.state === 'gameover') {
     ctx.fillStyle = '#ff5050';
     ctx.font = `bold 44px ${FONT}`;
