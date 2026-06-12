@@ -40,6 +40,7 @@ export function createPlayer(ctx: PhysicsContext, x: number, y: number): Player 
     mult: 1,
     damageCooldown: 0,
     alive: true,
+    healedTotal: 0,
   };
   ctx.register(collider, player);
   return player;

@@ -12,6 +12,8 @@ export interface Player {
   mult: number;
   damageCooldown: number;
   alive: boolean;
+  /** Total hull restored by orbs — healed hull only earns half win bonus. */
+  healedTotal: number;
 }
 
 export interface Hunter {

@@ -391,12 +391,16 @@ export class Game {
         this.particles.burst(pickup.x, pickup.y, n, 150, 0.5, 3, '#41ffe0');
         break;
       }
-      case 'orb':
+      case 'orb': {
         this.player.mult = Math.min(MULT_MAX, this.player.mult + 1);
-        this.player.hull = Math.min(HULL_MAX, this.player.hull + ORB_HEAL);
+        const healed =
+          Math.min(HULL_MAX, this.player.hull + ORB_HEAL) - this.player.hull;
+        this.player.hull += healed;
+        this.player.healedTotal += healed;
         this.orbsCollected++;
         this.particles.burst(pickup.x, pickup.y, 14, 180, 0.6, 4, '#ffd24a');
         break;
+      }
       case 'shield':
         this.player.shield = true;
         this.particles.burst(pickup.x, pickup.y, 12, 160, 0.6, 4, '#6699ff');
@@ -474,7 +478,12 @@ export class Game {
 
   private win(): void {
     this.state = 'win';
-    this.score += Math.round(this.player.hull) * 10;
+    // Healed hull only earns half bonus — patched plating isn't clean flying
+    const bonusHull = Math.max(
+      0,
+      this.player.hull - this.player.healedTotal * 0.5,
+    );
+    this.score += Math.round(bonusHull) * 10;
     this.score += Math.round(this.player.boostFuel) * 5;
     const g = this.gate;
     this.particles.burst(g.x, g.y, 60, 300, 1.2, 4, '#5dff8a');
