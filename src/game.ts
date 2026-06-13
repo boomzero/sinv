@@ -52,10 +52,23 @@ import {
   DAMAGE_COOLDOWN,
   HUNTER_STUN,
   HUNTER_LUNGE_GEM_FRACTION,
+  HULL_BONUS_PER,
+  BOOST_BONUS_PER,
+  WIN_BASE_BONUS,
+  WIN_TIME_PAR,
+  WIN_TIME_BONUS_PER,
 } from './constants';
 
 export type GameState = 'menu' | 'playing' | 'paused' | 'gameover' | 'win';
 export type LossReason = 'caught' | 'destroyed';
+
+export interface ScoreBreakdown {
+  gems: number; // score banked from gems during the run
+  escapeBonus: number; // flat reward + speed bonus for a fast getaway
+  hullBonus: number; // points for surviving hull
+  boostBonus: number; // points for leftover boost
+  total: number;
+}
 
 const PLAYER_SPAWN = { x: 350, y: MAP_H - 350 };
 const HUNTER_SPAWN = { x: MAP_W - 350, y: 350 };
@@ -86,6 +99,7 @@ export class Game {
   score = 0;
   highScore = loadHighScore();
   isNewHighScore = false;
+  winBreakdown: ScoreBreakdown | null = null;
   gemsCollected = 0;
   orbsCollected = 0;
 
@@ -118,6 +132,7 @@ export class Game {
     this.playT = 0;
     this.score = 0;
     this.isNewHighScore = false;
+    this.winBreakdown = null;
     this.gemsCollected = 0;
     this.orbsCollected = 0;
 
@@ -564,14 +579,28 @@ export class Game {
 
   private win(): void {
     this.state = 'win';
+    const sm = this.difficulty.scoreMultiplier;
+    // Score banked from gems so far (already scaled by difficulty per-pickup)
+    const gems = this.score;
+    // Escape bonus: a flat reward for reaching the gate plus a speed bonus that
+    // pays out for every second the getaway beats par.
+    const speedBonus = Math.max(0, WIN_TIME_PAR - this.playT) * WIN_TIME_BONUS_PER;
+    const escapeBonus = Math.round((WIN_BASE_BONUS + speedBonus) * sm);
     // Healed hull only earns half bonus — patched plating isn't clean flying
     const bonusHull = Math.max(
       0,
       this.player.hull - this.player.healedTotal * 0.5,
     );
-    const sm = this.difficulty.scoreMultiplier;
-    this.score += Math.round(bonusHull * 10 * sm);
-    this.score += Math.round(this.player.boostFuel * 5 * sm);
+    const hullBonus = Math.round(bonusHull * HULL_BONUS_PER * sm);
+    const boostBonus = Math.round(this.player.boostFuel * BOOST_BONUS_PER * sm);
+    this.score = gems + escapeBonus + hullBonus + boostBonus;
+    this.winBreakdown = {
+      gems,
+      escapeBonus,
+      hullBonus,
+      boostBonus,
+      total: this.score,
+    };
     this.isNewHighScore = saveHighScore(this.score);
     if (this.isNewHighScore) this.highScore = this.score;
     const g = this.gate;

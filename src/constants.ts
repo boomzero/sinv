@@ -52,6 +52,13 @@ export const SHIELD_COUNT = 5;
 export const BOOSTCELL_COUNT = 12;
 export const ASTEROID_COUNT = 35;
 
+// Win-screen scoring
+export const HULL_BONUS_PER = 10; // points per surviving hull point
+export const BOOST_BONUS_PER = 5; // points per leftover boost unit
+export const WIN_BASE_BONUS = 1500; // flat reward for reaching the gate
+export const WIN_TIME_PAR = 180; // escapes under this many seconds earn a speed bonus
+export const WIN_TIME_BONUS_PER = 15; // points per second saved under par
+
 // Gravity wells: acceleration = WELL_PULL / max(dist, WELL_MIN_DIST)^WELL_FALLOFF,
 // inside WELL_RADIUS. Gentle at the rim (~130) but past ~100 units the pull
 // exceeds even boosted thrust — dive too deep and the core takes you.

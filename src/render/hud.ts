@@ -330,42 +330,75 @@ export function drawOverlay(
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
     ctx.fillText('PRESS R TO RETRY', w / 2, h / 2 + 106);
   } else if (game.state === 'win') {
+    const cy = h / 2;
     ctx.fillStyle = '#5dff8a';
-    ctx.font = `bold 52px ${FONT}`;
+    ctx.font = `bold 48px ${FONT}`;
     ctx.shadowColor = '#5dff8a';
     ctx.shadowBlur = 24;
-    ctx.fillText('ESCAPED!', w / 2, h / 2 - 70);
+    ctx.fillText('ESCAPED!', w / 2, cy - 168);
     ctx.shadowBlur = 0;
-    ctx.font = `bold 26px ${FONT}`;
-    ctx.fillStyle = '#e8f4ff';
-    ctx.fillText(`FINAL SCORE  ${game.score}`, w / 2, h / 2 - 8);
-    if (game.isNewHighScore) {
-      ctx.font = `bold 14px ${FONT}`;
-      ctx.fillStyle = `rgba(255,210,74,${0.7 + 0.3 * Math.sin(game.time * 6)})`;
-      ctx.fillText('NEW BEST!', w / 2, h / 2 + 14);
-    } else {
-      ctx.font = `14px ${FONT}`;
-      ctx.fillStyle = 'rgba(255,210,74,0.5)';
-      ctx.fillText(`best  ${game.highScore}`, w / 2, h / 2 + 14);
+
+    ctx.font = `13px ${FONT}`;
+    ctx.fillStyle = 'rgba(232,244,255,0.6)';
+    ctx.fillText(
+      `escaped in ${Math.floor(game.playT)}s · ${Math.round(game.player.hull)}% hull · ${game.difficulty.name} ${game.difficulty.scoreMultiplier}× · healed ${Math.round(game.player.healedTotal)}`,
+      w / 2,
+      cy - 128,
+    );
+
+    // Score breakdown — label left, value right inside a centered column
+    const b = game.winBreakdown;
+    if (b) {
+      const colW = 300;
+      const lx = w / 2 - colW / 2;
+      const rx = w / 2 + colW / 2;
+      let ry = cy - 96;
+      const row = (label: string, value: number, dim = false) => {
+        ctx.font = `15px ${FONT}`;
+        ctx.fillStyle = dim ? 'rgba(232,244,255,0.55)' : 'rgba(232,244,255,0.85)';
+        ctx.textAlign = 'left';
+        ctx.fillText(label, lx, ry);
+        ctx.textAlign = 'right';
+        ctx.fillText(`+${value}`, rx, ry);
+        ry += 26;
+      };
+      row('gems collected', b.gems);
+      row('escape bonus', b.escapeBonus);
+      row('hull remaining', b.hullBonus);
+      row('boost remaining', b.boostBonus);
+
+      // Divider
+      ctx.strokeStyle = 'rgba(232,244,255,0.25)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(lx, ry - 8);
+      ctx.lineTo(rx, ry - 8);
+      ctx.stroke();
+      ry += 8;
+
+      ctx.font = `bold 20px ${FONT}`;
+      ctx.fillStyle = '#e8f4ff';
+      ctx.textAlign = 'left';
+      ctx.fillText('TOTAL', lx, ry);
+      ctx.textAlign = 'right';
+      ctx.fillText(`${b.total}`, rx, ry);
+      ctx.textAlign = 'center';
+      ry += 30;
+
+      if (game.isNewHighScore) {
+        ctx.font = `bold 15px ${FONT}`;
+        ctx.fillStyle = `rgba(255,210,74,${0.7 + 0.3 * Math.sin(game.time * 6)})`;
+        ctx.fillText('★ NEW BEST! ★', w / 2, ry);
+      } else {
+        ctx.font = `14px ${FONT}`;
+        ctx.fillStyle = 'rgba(255,210,74,0.5)';
+        ctx.fillText(`best  ${game.highScore}`, w / 2, ry);
+      }
     }
-    ctx.font = `16px ${FONT}`;
-    ctx.fillStyle = 'rgba(232,244,255,0.7)';
-    ctx.fillText(
-      `escaped in ${Math.floor(game.playT)}s with ${Math.round(game.player.hull)}% hull (hull & boost bonus included)`,
-      w / 2,
-      h / 2 + 38,
-    );
-    ctx.fillText(
-      `hull healed by orbs: ${Math.round(game.player.healedTotal)}`,
-      w / 2,
-      h / 2 + 60,
-    );
-    ctx.font = `14px ${FONT}`;
-    ctx.fillStyle = 'rgba(232,244,255,0.45)';
-    ctx.fillText(`difficulty: ${game.difficulty.name}  (${game.difficulty.scoreMultiplier}× score)`, w / 2, h / 2 + 82);
+
     ctx.font = `bold 18px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS R TO FLY AGAIN', w / 2, h / 2 + 110);
+    ctx.fillText('PRESS R TO FLY AGAIN', w / 2, cy + 130);
   }
   ctx.restore();
 }
