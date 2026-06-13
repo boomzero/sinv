@@ -179,7 +179,7 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
     for (let i = 0; i < 4; i++) {
       const a0 = time * 0.5 + (i * Math.PI) / 2;
       ctx.beginPath();
-      ctx.arc(0, 0, WELL_BAIT_RADIUS, a0, a0 + Math.PI * 0.55);
+      ctx.arc(0, 0, WELL_BAIT_RADIUS, a0, a0 + Math.PI * 0.3);
       ctx.stroke();
     }
     // Kill core: cross this and you (or the hunter) are gone. Solid red warning.
