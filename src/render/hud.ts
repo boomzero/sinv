@@ -41,6 +41,15 @@ export function drawHud(
     const left = Math.ceil(game.hunter.respawnAt - game.playT);
     ctx.fillStyle = `rgba(200,130,255,${0.7 + 0.3 * Math.sin(game.time * 5)})`;
     ctx.fillText(`HUNTER LOST TO THE VOID — RETURNS IN ${left}`, w / 2, 16);
+  } else if (
+    game.state === 'playing' &&
+    game.interceptAt >= 0 &&
+    game.playT - game.interceptAt < 4
+  ) {
+    const age = game.playT - game.interceptAt;
+    const a = age < 0.4 ? age / 0.4 : age > 3.2 ? (4 - age) / 0.8 : 1;
+    ctx.fillStyle = `rgba(200,130,255,${0.85 * a})`;
+    ctx.fillText('⚠ INTERCEPT: HUNTER BHAS DISABLED — PILOT OVERRIDE', w / 2, 16);
   } else if (game.state === 'playing' && game.playT < game.difficulty.hunterWarmup) {
     const left = Math.ceil(game.difficulty.hunterWarmup - game.playT);
     ctx.fillStyle = `rgba(255,90,90,${0.6 + 0.4 * Math.sin(game.time * 6)})`;

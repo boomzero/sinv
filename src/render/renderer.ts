@@ -370,8 +370,7 @@ function drawHunter(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.save();
   ctx.translate(pos.x, pos.y);
 
-  // Lured: a swirling purple ring shows the bait landed and the hunter is
-  // committed — it won't dodge the core now, so it's about to be swallowed.
+  // Lured: BHAS disabled — hunter is committed to the core.
   if (game.playT < hunter.lureCommitUntil) {
     const a = 0.5 + 0.4 * Math.sin(game.time * 10);
     ctx.strokeStyle = `rgba(200,130,255,${a})`;
@@ -379,6 +378,11 @@ function drawHunter(ctx: CanvasRenderingContext2D, game: Game): void {
     ctx.beginPath();
     ctx.arc(0, 0, HUNTER_RADIUS + 8, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.font = 'bold 9px monospace';
+    ctx.fillStyle = `rgba(200,130,255,${a})`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('BHAS OFF', HUNTER_RADIUS + 12, 0);
   }
 
   if (hunter.telegraph > 0) {
@@ -389,6 +393,19 @@ function drawHunter(ctx: CanvasRenderingContext2D, game: Game): void {
     ctx.beginPath();
     ctx.arc(0, 0, HUNTER_RADIUS + 6 + t * 26, 0, Math.PI * 2);
     ctx.stroke();
+  }
+  if (stunned) {
+    const a = 0.5 + 0.35 * Math.sin(game.time * 12);
+    ctx.strokeStyle = `rgba(255,60,180,${a})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, HUNTER_RADIUS + 12, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.font = 'bold 9px monospace';
+    ctx.fillStyle = `rgba(255,60,180,${a})`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('HULL BREACH', HUNTER_RADIUS + 16, 0);
   }
   if (warming) {
     const a = 0.4 + 0.35 * Math.sin(game.time * 8);

@@ -87,6 +87,8 @@ export class Game {
   lossReason: LossReason = 'caught';
   mouseSteer = localStorage.getItem('sinv-mouse') === '1';
   debugDraw = false;
+  /** playT when the first BHAS override intercept was triggered this run (−1 = not yet). */
+  interceptAt = -1;
   difficultyIndex = loadDifficultyIndex();
   viewW = 0;
   viewH = 0;
@@ -145,6 +147,7 @@ export class Game {
     this.winBreakdown = null;
     this.gemsCollected = 0;
     this.orbsCollected = 0;
+    this.interceptAt = -1;
 
     const rng = mulberry32(seed);
     createWalls(this.physics);
@@ -333,6 +336,9 @@ export class Game {
           this.wells,
           dt,
         );
+        if (this.hunter.lureCommitUntil > this.playT && this.interceptAt < 0) {
+          this.interceptAt = this.playT;
+        }
       }
     } else {
       // Ships idle: clear any leftover forces so they just drift
