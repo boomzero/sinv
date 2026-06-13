@@ -305,13 +305,16 @@ export function drawOverlay(
     ctx.font = `16px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.7)';
     ctx.fillText(
-      `gems ${game.gemsCollected}/${game.gemCount}   ·   survived ${Math.floor(game.playT)}s`,
+      `gems ${game.gemsCollected}/${game.gemCount}   ·   survived ${Math.floor(game.playT)}s   ·   hull healed ${Math.round(game.player.healedTotal)}`,
       w / 2,
       h / 2 + 36,
     );
+    ctx.font = `14px ${FONT}`;
+    ctx.fillStyle = 'rgba(232,244,255,0.45)';
+    ctx.fillText(`difficulty: ${game.difficulty.name}`, w / 2, h / 2 + 60);
     ctx.font = `bold 18px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS R TO RETRY', w / 2, h / 2 + 90);
+    ctx.fillText('PRESS R TO RETRY', w / 2, h / 2 + 96);
   } else if (game.state === 'win') {
     ctx.fillStyle = '#5dff8a';
     ctx.font = `bold 52px ${FONT}`;
@@ -329,9 +332,17 @@ export function drawOverlay(
       w / 2,
       h / 2 + 30,
     );
+    ctx.fillText(
+      `hull healed by orbs: ${Math.round(game.player.healedTotal)}`,
+      w / 2,
+      h / 2 + 54,
+    );
+    ctx.font = `14px ${FONT}`;
+    ctx.fillStyle = 'rgba(232,244,255,0.45)';
+    ctx.fillText(`difficulty: ${game.difficulty.name}`, w / 2, h / 2 + 76);
     ctx.font = `bold 18px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS R TO FLY AGAIN', w / 2, h / 2 + 84);
+    ctx.fillText('PRESS R TO FLY AGAIN', w / 2, h / 2 + 100);
   }
   ctx.restore();
 }
