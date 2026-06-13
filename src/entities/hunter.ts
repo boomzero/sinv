@@ -16,6 +16,7 @@ import {
   HUNTER_AVOID_DIST,
   HUNTER_AVOID_MIN_RADIUS,
   WELL_CORE_RADIUS,
+  HUNTER_LURE_COMMIT,
 } from '../constants';
 
 export function createHunter(ctx: PhysicsContext, x: number, y: number): Hunter {
@@ -42,6 +43,8 @@ export function createHunter(ctx: PhysicsContext, x: number, y: number): Hunter 
     lungeTimer: HUNTER_LUNGE_PERIOD,
     telegraph: 0,
     respawnAt: 0,
+    lureCommitUntil: 0,
+    lureStrength: 0,
   };
   ctx.register(collider, hunter);
   return hunter;
@@ -110,8 +113,14 @@ export function updateHunter(
       // risk the kill-core itself to make the hunter commit. Skimming the safe
       // outer field does nothing — you can't slingshot the rim and fool it too.
       const baitZone = WELL_CORE_RADIUS * 2.1;
-      const lure =
-        preyDist < baitZone ? 0.7 * (1 - preyDist / baitZone) : 0;
+      if (preyDist < baitZone) {
+        // Latch the commitment: the prey will slingshot clear in a fraction of
+        // a second, but the hunter stays locked on long enough for gravity to
+        // finish dragging it into the core.
+        hunter.lureCommitUntil = playTime + HUNTER_LURE_COMMIT;
+        hunter.lureStrength = 0.7 * (1 - preyDist / baitZone);
+      }
+      const lure = playTime < hunter.lureCommitUntil ? hunter.lureStrength : 0;
       const avoidStrength = 2.6 * (1 - lure);
       const push = maxSpeed * avoidStrength * depth * depth;
       desired.x += (dx / dist) * push;

@@ -26,6 +26,10 @@ export interface Hunter {
   telegraph: number;
   /** playT at which the hunter re-materializes after a black hole ate it (0 = active). */
   respawnAt: number;
+  /** playTime until which a bait near a core keeps the hunter recklessly committed. */
+  lureCommitUntil: number;
+  /** Strength (0..0.7) of the avoidance reduction captured at bait time. */
+  lureStrength: number;
 }
 
 export interface Asteroid {

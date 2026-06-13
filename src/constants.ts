@@ -32,6 +32,9 @@ export const HUNTER_GAIN = 2.6; // steering responsiveness
 export const HUNTER_WARMUP = 5; // seconds before pursuit begins
 export const HUNTER_STUN = 3; // seconds stunned after shield break
 export const HUNTER_BLACKHOLE_RESPAWN = 10; // seconds gone after a core swallows it
+// Once baited into a core's inner band, the hunter stays committed this long
+// even after the prey rockets clear — so a fast slingshot lure still lands.
+export const HUNTER_LURE_COMMIT = 0.85;
 export const HUNTER_LUNGE_PERIOD = 6;
 export const HUNTER_LUNGE_TELEGRAPH = 0.8;
 export const HUNTER_LUNGE_IMPULSE = 620; // delta-v of a lunge burst
