@@ -112,7 +112,7 @@ export function drawScene(
   game.camera.apply(ctx, w, h);
 
   drawBounds(ctx, game.time);
-  for (const well of game.wells) drawWell(ctx, well, game.time);
+  for (const well of game.wells) drawWell(ctx, well, game.time, game.debugDraw);
   drawGate(ctx, game);
   for (const p of game.pickups) {
     if (!p.taken) drawPickup(ctx, p, game.time);
@@ -137,7 +137,7 @@ function drawBounds(ctx: CanvasRenderingContext2D, time: number): void {
   ctx.restore();
 }
 
-function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number): void {
+function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number, debug = false): void {
   const black = well.polarity === 1;
   ctx.save();
   ctx.translate(well.x, well.y);
@@ -185,12 +185,13 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
     ctx.arc(0, 0, WELL_BAIT_RADIUS, a0bait, a0bait + Math.PI * 1.2);
     ctx.stroke();
 
-    // Kill core: cross this and you (or the hunter) are gone. Solid red warning.
-    ctx.strokeStyle = `rgba(255,70,70,${0.55 + 0.2 * Math.sin(time * 4)})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, 0, WELL_CORE_RADIUS, 0, Math.PI * 2);
-    ctx.stroke();
+    if (debug) {
+      ctx.strokeStyle = `rgba(255,70,70,${0.55 + 0.2 * Math.sin(time * 4)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, WELL_CORE_RADIUS, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
 
   ctx.fillStyle = black ? 'rgba(230,180,255,0.9)' : 'rgba(255,255,255,0.95)';
