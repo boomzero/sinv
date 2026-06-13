@@ -156,41 +156,38 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
   ctx.arc(0, 0, well.radius, 0, Math.PI * 2);
   ctx.fill();
 
-  // Swirl arcs. White holes spin in the same sense as their tangential vortex
-  // force (WHITE_HOLE_SWIRL_DIR), so the visible whirl honestly shows the way
-  // it'll fling a grazing ship.
-  ctx.strokeStyle = black ? 'rgba(200,130,255,0.5)' : 'rgba(210,240,255,0.55)';
-  ctx.lineWidth = 2;
-  const spin = black ? 1 : WHITE_HOLE_SWIRL_DIR;
-  for (let i = 0; i < 3; i++) {
-    const a0 = spin * time * (0.6 + i * 0.25) + (i * Math.PI * 2) / 3;
-    const r = 40 + i * 45;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, a0, a0 + Math.PI * 1.2);
-    ctx.stroke();
-  }
-  if (!black) {
-    // Vortex chevrons: arrowheads riding the whirl, pointing the way it throws
-    // you. This is the slingshot's tell — graze along the chevrons for a boost.
-    const dir = WHITE_HOLE_SWIRL_DIR;
-    const rr = well.radius * 0.55;
-    const n = 6;
-    ctx.strokeStyle = 'rgba(180,230,255,0.55)';
+  // Swirl arcs. Black holes get plain spiraling arcs; white holes draw theirs
+  // as comet streaks — bright leading head fading to tail — so the spin reads
+  // as motion and honestly shows the way the vortex flings a grazing ship.
+  if (black) {
+    ctx.strokeStyle = 'rgba(200,130,255,0.5)';
     ctx.lineWidth = 2;
-    for (let k = 0; k < n; k++) {
-      const th = (k / n) * Math.PI * 2 + dir * time * 0.8;
-      const px = Math.cos(th) * rr;
-      const py = Math.sin(th) * rr;
-      const tx = dir * -Math.sin(th); // screen tangent in the spin direction
-      const ty = dir * Math.cos(th);
-      const ax = -ty; // perpendicular, for the chevron wings
-      const ay = tx;
-      const s = 7;
+    for (let i = 0; i < 3; i++) {
+      const a0 = time * (0.6 + i * 0.25) + (i * Math.PI * 2) / 3;
+      const r = 40 + i * 45;
       ctx.beginPath();
-      ctx.moveTo(px - tx * s + ax * s * 0.6, py - ty * s + ay * s * 0.6);
-      ctx.lineTo(px + tx * s, py + ty * s);
-      ctx.lineTo(px - tx * s - ax * s * 0.6, py - ty * s - ay * s * 0.6);
+      ctx.arc(0, 0, r, a0, a0 + Math.PI * 1.2);
       ctx.stroke();
+    }
+  } else {
+    const dir = WHITE_HOLE_SWIRL_DIR;
+    const span = Math.PI * 1.2;
+    const seg = 16;
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i < 3; i++) {
+      const r = 40 + i * 45;
+      const head = dir * time * (0.6 + i * 0.25) + (i * Math.PI * 2) / 3;
+      for (let j = 0; j < seg; j++) {
+        const u0 = j / seg;
+        const u1 = (j + 1) / seg;
+        const aA = head - dir * u0 * span;
+        const aB = head - dir * u1 * span;
+        ctx.strokeStyle = `rgba(210,240,255,${0.6 * (1 - u0)})`;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(aA) * r, Math.sin(aA) * r);
+        ctx.lineTo(Math.cos(aB) * r, Math.sin(aB) * r);
+        ctx.stroke();
+      }
     }
   }
 
