@@ -170,16 +170,18 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
   }
 
   if (black) {
-    // Bait band: thread this ring to lure the hunter in (it commits and
-    // follows). Dashed and calm so it reads as "playable", not a hard wall.
+    // Bait band: thread this radius to lure the hunter in. Rendered as faint
+    // swirling arcs (not a hard dashed ring) so it reads as part of the well's
+    // pull, a subtle target rather than a wall.
     ctx.shadowBlur = 0;
-    ctx.strokeStyle = `rgba(200,130,255,${0.3 + 0.1 * Math.sin(time * 2)})`;
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([6, 10]);
-    ctx.beginPath();
-    ctx.arc(0, 0, WELL_BAIT_RADIUS, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.strokeStyle = `rgba(200,130,255,${0.16 + 0.06 * Math.sin(time * 2)})`;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i++) {
+      const a0 = time * 0.5 + (i * Math.PI) / 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, WELL_BAIT_RADIUS, a0, a0 + Math.PI * 0.55);
+      ctx.stroke();
+    }
     // Kill core: cross this and you (or the hunter) are gone. Solid red warning.
     ctx.strokeStyle = `rgba(255,70,70,${0.55 + 0.2 * Math.sin(time * 4)})`;
     ctx.lineWidth = 2;
