@@ -175,23 +175,20 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
     ctx.stroke();
   }
 
-  if (black) {
-    // 4th swirl level at bait-band radius — same style as the inner arcs above
-    // so it blends in as ambient decoration rather than a distinct boundary.
-    const a0bait = time * (0.6 + 3 * 0.25) + (3 * Math.PI * 2) / 3;
-    ctx.strokeStyle = 'rgba(200,130,255,0.5)';
+  if (black && debug) {
+    ctx.strokeStyle = 'rgba(200,130,255,0.8)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(0, 0, WELL_BAIT_RADIUS, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.strokeStyle = `rgba(255,70,70,${0.55 + 0.2 * Math.sin(time * 4)})`;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(0, 0, WELL_BAIT_RADIUS, a0bait, a0bait + Math.PI * 1.2);
+    ctx.arc(0, 0, WELL_CORE_RADIUS, 0, Math.PI * 2);
     ctx.stroke();
-
-    if (debug) {
-      ctx.strokeStyle = `rgba(255,70,70,${0.55 + 0.2 * Math.sin(time * 4)})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, WELL_CORE_RADIUS, 0, Math.PI * 2);
-      ctx.stroke();
-    }
   }
 
   ctx.fillStyle = black ? 'rgba(230,180,255,0.9)' : 'rgba(255,255,255,0.95)';
