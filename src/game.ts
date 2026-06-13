@@ -42,6 +42,8 @@ import {
   WELL_MIN_DIST,
   WELL_HUNTER_FACTOR,
   WELL_CORE_RADIUS,
+  WELL_BAIT_RADIUS,
+  WELL_BAIT_DRAG,
   ORB_HEAL,
   HULL_MAX,
   BOOST_MAX,
@@ -378,6 +380,19 @@ export class Game {
             (well.polarity === -1 ? WHITE_HOLE_PUSH_FACTOR : 1);
           const f = (accel * body.mass()) / dist;
           body.addForce({ x: dx * f, y: dy * f }, true);
+
+          // Inside a black hole's bait band, ships hit heavy drag that bleeds
+          // the speed keeping them clear of the core — coast and you spiral in,
+          // so the slingshot pass demands constant boost to hold velocity.
+          if (
+            well.polarity === 1 &&
+            dist < WELL_BAIT_RADIUS &&
+            (body === this.player.body || body === this.hunter.body)
+          ) {
+            const v = body.linvel();
+            const k = WELL_BAIT_DRAG * body.mass();
+            body.addForce({ x: -v.x * k, y: -v.y * k }, true);
+          }
         }
       }
     }
