@@ -3,7 +3,7 @@ import type { EventQueue } from '@dimforge/rapier2d-compat';
 import { PhysicsContext, createWalls } from './physics';
 import { Input } from './input';
 import { Camera } from './camera';
-import { DIFFICULTIES, loadDifficultyIndex } from './difficulty';
+import { DIFFICULTIES, loadDifficultyIndex, loadHighScore, saveHighScore } from './difficulty';
 import { Particles } from './render/particles';
 import { drawScene } from './render/renderer';
 import { drawHud, drawOverlay } from './render/hud';
@@ -84,6 +84,8 @@ export class Game {
   time = 0; // wall time since boot (for animation)
   playT = 0; // time since this run started
   score = 0;
+  highScore = loadHighScore();
+  isNewHighScore = false;
   gemsCollected = 0;
   orbsCollected = 0;
 
@@ -115,6 +117,7 @@ export class Game {
     this.wells = [];
     this.playT = 0;
     this.score = 0;
+    this.isNewHighScore = false;
     this.gemsCollected = 0;
     this.orbsCollected = 0;
 
@@ -465,7 +468,7 @@ export class Game {
     switch (pickup.type) {
       case 'gem': {
         const value = pickup.bonus ? GEM_SCORE * GEM_BONUS_MULT : GEM_SCORE;
-        this.score += value * this.player.mult;
+        this.score += Math.round(value * this.player.mult * this.difficulty.scoreMultiplier);
         this.gemsCollected++;
         if (this.gemsCollected >= this.gemCount) this.gate.active = true;
         const n = pickup.bonus ? 20 : 10;
@@ -555,6 +558,8 @@ export class Game {
     this.particles.burst(p.x, p.y, 50, 380, 1.1, 5, '#3fd6ff');
     this.particles.burst(p.x, p.y, 30, 260, 0.9, 4, '#ffffff');
     this.camera.addShake(22);
+    this.isNewHighScore = saveHighScore(this.score);
+    if (this.isNewHighScore) this.highScore = this.score;
   }
 
   private win(): void {
@@ -564,8 +569,11 @@ export class Game {
       0,
       this.player.hull - this.player.healedTotal * 0.5,
     );
-    this.score += Math.round(bonusHull) * 10;
-    this.score += Math.round(this.player.boostFuel) * 5;
+    const sm = this.difficulty.scoreMultiplier;
+    this.score += Math.round(bonusHull * 10 * sm);
+    this.score += Math.round(this.player.boostFuel * 5 * sm);
+    this.isNewHighScore = saveHighScore(this.score);
+    if (this.isNewHighScore) this.highScore = this.score;
     const g = this.gate;
     this.particles.burst(g.x, g.y, 60, 300, 1.2, 4, '#5dff8a');
   }

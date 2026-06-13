@@ -10,6 +10,8 @@ export interface Difficulty {
   asteroidCount: number;
   /** Gems needed to unlock the exit gate. */
   gemCount: number;
+  /** Multiplier applied to all score gains. */
+  scoreMultiplier: number;
   blurb: string;
 }
 
@@ -20,7 +22,8 @@ export const DIFFICULTIES: Difficulty[] = [
     hunterWarmup: 8,
     asteroidCount: 24,
     gemCount: 16,
-    blurb: 'slower hunter · long warm-up · fewer gems · sparse field',
+    scoreMultiplier: 0.7,
+    blurb: 'slower hunter · long warm-up · fewer gems · sparse field · 0.7× score',
   },
   {
     name: 'NORMAL',
@@ -28,7 +31,8 @@ export const DIFFICULTIES: Difficulty[] = [
     hunterWarmup: HUNTER_WARMUP,
     asteroidCount: ASTEROID_COUNT,
     gemCount: GEM_COUNT,
-    blurb: 'the standard hunt',
+    scoreMultiplier: 1,
+    blurb: 'the standard hunt · 1× score',
   },
   {
     name: 'HARD',
@@ -36,7 +40,8 @@ export const DIFFICULTIES: Difficulty[] = [
     hunterWarmup: 3,
     asteroidCount: 46,
     gemCount: GEM_COUNT,
-    blurb: 'fast hunter · short warm-up · dense field',
+    scoreMultiplier: 1.5,
+    blurb: 'fast hunter · short warm-up · dense field · 1.5× score',
   },
 ];
 
@@ -47,4 +52,19 @@ export function loadDifficultyIndex(): number {
   return Number.isInteger(raw) && raw >= 0 && raw < DIFFICULTIES.length
     ? raw
     : DEFAULT_DIFFICULTY;
+}
+
+const HS_KEY = 'sinv-highscore';
+
+export function loadHighScore(): number {
+  return parseInt(localStorage.getItem(HS_KEY) ?? '0', 10) || 0;
+}
+
+export function saveHighScore(score: number): boolean {
+  const prev = loadHighScore();
+  if (score > prev) {
+    localStorage.setItem(HS_KEY, String(score));
+    return true;
+  }
+  return false;
 }

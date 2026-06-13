@@ -207,6 +207,11 @@ export function drawOverlay(
     ctx.font = `bold 16px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.8)';
     ctx.fillText('SPACE SCAVENGER', w / 2, cy - 124);
+    if (game.highScore > 0) {
+      ctx.font = `14px ${FONT}`;
+      ctx.fillStyle = 'rgba(255,210,74,0.7)';
+      ctx.fillText(`BEST  ${game.highScore}`, w / 2, cy - 100);
+    }
 
     // Objective — the two sentences that matter
     ctx.font = `15px ${FONT}`;
@@ -302,19 +307,28 @@ export function drawOverlay(
     ctx.font = `bold 24px ${FONT}`;
     ctx.fillStyle = '#e8f4ff';
     ctx.fillText(`FINAL SCORE  ${game.score}`, w / 2, h / 2);
+    if (game.isNewHighScore) {
+      ctx.font = `bold 14px ${FONT}`;
+      ctx.fillStyle = `rgba(255,210,74,${0.7 + 0.3 * Math.sin(game.time * 6)})`;
+      ctx.fillText('NEW BEST!', w / 2, h / 2 + 22);
+    } else {
+      ctx.font = `14px ${FONT}`;
+      ctx.fillStyle = 'rgba(255,210,74,0.5)';
+      ctx.fillText(`best  ${game.highScore}`, w / 2, h / 2 + 22);
+    }
     ctx.font = `16px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.7)';
     ctx.fillText(
       `gems ${game.gemsCollected}/${game.gemCount}   ·   survived ${Math.floor(game.playT)}s   ·   hull healed ${Math.round(game.player.healedTotal)}`,
       w / 2,
-      h / 2 + 36,
+      h / 2 + 46,
     );
     ctx.font = `14px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.45)';
-    ctx.fillText(`difficulty: ${game.difficulty.name}`, w / 2, h / 2 + 60);
+    ctx.fillText(`difficulty: ${game.difficulty.name}  (${game.difficulty.scoreMultiplier}× score)`, w / 2, h / 2 + 70);
     ctx.font = `bold 18px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS R TO RETRY', w / 2, h / 2 + 96);
+    ctx.fillText('PRESS R TO RETRY', w / 2, h / 2 + 106);
   } else if (game.state === 'win') {
     ctx.fillStyle = '#5dff8a';
     ctx.font = `bold 52px ${FONT}`;
@@ -325,24 +339,33 @@ export function drawOverlay(
     ctx.font = `bold 26px ${FONT}`;
     ctx.fillStyle = '#e8f4ff';
     ctx.fillText(`FINAL SCORE  ${game.score}`, w / 2, h / 2 - 8);
+    if (game.isNewHighScore) {
+      ctx.font = `bold 14px ${FONT}`;
+      ctx.fillStyle = `rgba(255,210,74,${0.7 + 0.3 * Math.sin(game.time * 6)})`;
+      ctx.fillText('NEW BEST!', w / 2, h / 2 + 14);
+    } else {
+      ctx.font = `14px ${FONT}`;
+      ctx.fillStyle = 'rgba(255,210,74,0.5)';
+      ctx.fillText(`best  ${game.highScore}`, w / 2, h / 2 + 14);
+    }
     ctx.font = `16px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.7)';
     ctx.fillText(
       `escaped in ${Math.floor(game.playT)}s with ${Math.round(game.player.hull)}% hull (hull & boost bonus included)`,
       w / 2,
-      h / 2 + 30,
+      h / 2 + 38,
     );
     ctx.fillText(
       `hull healed by orbs: ${Math.round(game.player.healedTotal)}`,
       w / 2,
-      h / 2 + 54,
+      h / 2 + 60,
     );
     ctx.font = `14px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.45)';
-    ctx.fillText(`difficulty: ${game.difficulty.name}`, w / 2, h / 2 + 76);
+    ctx.fillText(`difficulty: ${game.difficulty.name}  (${game.difficulty.scoreMultiplier}× score)`, w / 2, h / 2 + 82);
     ctx.font = `bold 18px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS R TO FLY AGAIN', w / 2, h / 2 + 100);
+    ctx.fillText('PRESS R TO FLY AGAIN', w / 2, h / 2 + 110);
   }
   ctx.restore();
 }
