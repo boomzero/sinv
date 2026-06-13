@@ -37,7 +37,11 @@ export function drawHud(
   // Status banners (top-center)
   ctx.textAlign = 'center';
   ctx.font = `bold 16px ${FONT}`;
-  if (game.state === 'playing' && game.playT < game.difficulty.hunterWarmup) {
+  if (game.state === 'playing' && game.hunterRespawning) {
+    const left = Math.ceil(game.hunter.respawnAt - game.playT);
+    ctx.fillStyle = `rgba(200,130,255,${0.7 + 0.3 * Math.sin(game.time * 5)})`;
+    ctx.fillText(`HUNTER LOST TO THE VOID — RETURNS IN ${left}`, w / 2, 16);
+  } else if (game.state === 'playing' && game.playT < game.difficulty.hunterWarmup) {
     const left = Math.ceil(game.difficulty.hunterWarmup - game.playT);
     ctx.fillStyle = `rgba(255,90,90,${0.6 + 0.4 * Math.sin(game.time * 6)})`;
     ctx.fillText(`HUNTER ONLINE IN ${left}`, w / 2, 16);
@@ -107,12 +111,14 @@ function drawMinimap(ctx: CanvasRenderingContext2D, game: Game, w: number): void
   // Gate
   ctx.fillStyle = game.gate.active ? '#5dff8a' : 'rgba(140,150,160,0.7)';
   ctx.fillRect(mx + game.gate.x * sx - 2, my + game.gate.y * sy - 2, 4, 4);
-  // Hunter
-  const hp = game.hunter.body.translation();
-  ctx.fillStyle = '#ff5050';
-  ctx.beginPath();
-  ctx.arc(mx + hp.x * sx, my + hp.y * sy, 3, 0, Math.PI * 2);
-  ctx.fill();
+  // Hunter — hidden while a black hole has it
+  if (!game.hunterRespawning) {
+    const hp = game.hunter.body.translation();
+    ctx.fillStyle = '#ff5050';
+    ctx.beginPath();
+    ctx.arc(mx + hp.x * sx, my + hp.y * sy, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
   // Player
   if (game.player.alive) {
     const pp = game.player.body.translation();
@@ -163,7 +169,7 @@ function drawHunterArrow(
   w: number,
   h: number,
 ): void {
-  if (game.state !== 'playing') return;
+  if (game.state !== 'playing' || game.hunterRespawning) return;
   const hp = game.hunter.body.translation();
   const pp = game.player.body.translation();
   const dist = Math.hypot(hp.x - pp.x, hp.y - pp.y);

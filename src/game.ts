@@ -51,6 +51,8 @@ import {
   DAMAGE_MAX,
   DAMAGE_COOLDOWN,
   HUNTER_STUN,
+  HUNTER_BLACKHOLE_RESPAWN,
+  HUNTER_LUNGE_PERIOD,
   HUNTER_LUNGE_GEM_FRACTION,
   HULL_BONUS_PER,
   BOOST_BONUS_PER,
@@ -93,6 +95,11 @@ export class Game {
   /** Gems needed to unlock the exit gate this run. */
   get gemCount() {
     return this.difficulty.gemCount;
+  }
+
+  /** True while a black hole has swallowed the hunter and it hasn't re-materialized yet. */
+  get hunterRespawning() {
+    return this.hunter.respawnAt > this.playT;
   }
   time = 0; // wall time since boot (for animation)
   playT = 0; // time since this run started
@@ -299,17 +306,30 @@ export class Game {
       }
       this.playerFrame = updatePlayer(this.player, this.input, dt, aimAngle);
       this.emitEngineTrail();
-      updateHunter(
-        this.hunter,
-        this.player,
-        this.physics,
-        this.playT,
-        this.orbsCollected,
-        this.gemsCollected >= this.gemCount * HUNTER_LUNGE_GEM_FRACTION,
-        this.difficulty,
-        this.wells,
-        dt,
-      );
+      if (this.hunterRespawning) {
+        // Swallowed by a core: sit out the timer, parked and inert at spawn.
+        this.hunter.body.resetForces(true);
+        this.hunter.telegraph = 0;
+      } else {
+        if (!this.hunter.collider.isEnabled()) {
+          // Timer elapsed — re-materialize at the spawn corner.
+          this.hunter.collider.setEnabled(true);
+          this.hunter.lungeTimer = HUNTER_LUNGE_PERIOD;
+          const hp = this.hunter.body.translation();
+          this.particles.burst(hp.x, hp.y, 30, 260, 0.9, 4, '#ff5050');
+        }
+        updateHunter(
+          this.hunter,
+          this.player,
+          this.physics,
+          this.playT,
+          this.orbsCollected,
+          this.gemsCollected >= this.gemCount * HUNTER_LUNGE_GEM_FRACTION,
+          this.difficulty,
+          this.wells,
+          dt,
+        );
+      }
     } else {
       // Ships idle: clear any leftover forces so they just drift
       this.player.body.resetForces(true);
@@ -337,9 +357,11 @@ export class Game {
 
   private applyGravityWells(): void {
     for (const a of this.asteroids) a.body.resetForces(true);
+    const huntable = this.state === 'playing' && !this.hunterRespawning;
     const bodies = [
       ...this.asteroids.map((a) => a.body),
-      ...(this.state === 'playing' ? [this.player.body, this.hunter.body] : []),
+      ...(this.state === 'playing' ? [this.player.body] : []),
+      ...(huntable ? [this.hunter.body] : []),
     ];
     for (const body of bodies) {
       const p = body.translation();
@@ -377,21 +399,27 @@ export class Game {
         }
       }
     }
-    // Despite resisting the pull, the hunter can still get dragged into a
-    // core mid-chase — eject it back to its spawn corner instead of letting
-    // it sit pinned in the singularity.
-    if (this.state === 'playing') {
+    // Despite resisting the pull, the hunter can still get dragged into a core
+    // mid-chase. When that happens the singularity eats it: it vanishes for a
+    // good while, handing the player a real breather, then re-materializes back
+    // at its spawn corner.
+    if (this.state === 'playing' && !this.hunterRespawning) {
       const hp = this.hunter.body.translation();
       for (const well of this.wells) {
         if (well.polarity !== 1) continue;
         if (Math.hypot(well.x - hp.x, well.y - hp.y) < WELL_CORE_RADIUS) {
-          this.particles.burst(hp.x, hp.y, 24, 240, 0.8, 4, '#ff5050');
+          this.particles.burst(hp.x, hp.y, 34, 280, 0.9, 5, '#c873ff');
+          this.particles.burst(hp.x, hp.y, 20, 200, 0.7, 4, '#ff5050');
+          this.hunter.respawnAt = this.playT + HUNTER_BLACKHOLE_RESPAWN;
+          this.hunter.stunnedUntil = this.hunter.respawnAt;
+          // Pull it out of the world: no collisions, no forces, not drawn.
+          this.hunter.collider.setEnabled(false);
+          this.hunter.body.setLinvel({ x: 0, y: 0 }, true);
+          this.hunter.body.resetForces(true);
           this.hunter.body.setTranslation(
             { x: HUNTER_SPAWN.x, y: HUNTER_SPAWN.y },
             true,
           );
-          this.hunter.body.setLinvel({ x: 0, y: 0 }, true);
-          this.hunter.stunnedUntil = this.playT + 2; // re-materializing
           break;
         }
       }

@@ -40,6 +40,7 @@ export function createHunter(ctx: PhysicsContext, x: number, y: number): Hunter 
     stunnedUntil: 0,
     lungeTimer: HUNTER_LUNGE_PERIOD,
     telegraph: 0,
+    respawnAt: 0,
   };
   ctx.register(collider, hunter);
   return hunter;

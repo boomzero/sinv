@@ -31,6 +31,7 @@ export const HUNTER_SPEED_CAP = 720;
 export const HUNTER_GAIN = 2.6; // steering responsiveness
 export const HUNTER_WARMUP = 5; // seconds before pursuit begins
 export const HUNTER_STUN = 3; // seconds stunned after shield break
+export const HUNTER_BLACKHOLE_RESPAWN = 10; // seconds gone after a core swallows it
 export const HUNTER_LUNGE_PERIOD = 6;
 export const HUNTER_LUNGE_TELEGRAPH = 0.8;
 export const HUNTER_LUNGE_IMPULSE = 620; // delta-v of a lunge burst

@@ -24,6 +24,8 @@ export interface Hunter {
   lungeTimer: number;
   /** > 0 while telegraphing an imminent lunge (seconds remaining). */
   telegraph: number;
+  /** playT at which the hunter re-materializes after a black hole ate it (0 = active). */
+  respawnAt: number;
 }
 
 export interface Asteroid {

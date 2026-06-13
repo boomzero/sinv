@@ -314,6 +314,23 @@ function drawPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
 function drawHunter(ctx: CanvasRenderingContext2D, game: Game): void {
   const hunter = game.hunter;
   const pos = hunter.body.translation();
+  // Swallowed by a black hole: the ship is gone. In the last second before it
+  // returns, a faint portal forms at the spawn corner where it'll re-emerge.
+  if (game.hunterRespawning) {
+    const left = hunter.respawnAt - game.playT;
+    if (left < 1.2) {
+      const t = 1 - left / 1.2;
+      ctx.save();
+      ctx.translate(pos.x, pos.y);
+      ctx.strokeStyle = `rgba(255,80,80,${0.6 * t})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, (1 - t) * 60 + HUNTER_RADIUS, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    return;
+  }
   const vel = hunter.body.linvel();
   const speed = Math.hypot(vel.x, vel.y);
   const angle = speed > 5 ? Math.atan2(vel.y, vel.x) : game.time * 0.3;
