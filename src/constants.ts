@@ -34,7 +34,7 @@ export const HUNTER_STUN = 3; // seconds stunned after shield break
 export const HUNTER_BLACKHOLE_RESPAWN = 10; // seconds gone after a core swallows it
 // Once baited into a core's inner band, the hunter stays committed this long
 // even after the prey rockets clear — so a fast slingshot lure still lands.
-export const HUNTER_LURE_COMMIT = 0.85;
+export const HUNTER_LURE_COMMIT = 1.1;
 export const HUNTER_LUNGE_PERIOD = 6;
 export const HUNTER_LUNGE_TELEGRAPH = 0.8;
 export const HUNTER_LUNGE_IMPULSE = 620; // delta-v of a lunge burst
@@ -79,3 +79,6 @@ export const WELL_MIN_DIST = 45;
 export const WELL_HUNTER_FACTOR = 0.35;
 // Anything drifting into the core gets consumed; asteroids respawn elsewhere
 export const WELL_CORE_RADIUS = 70;
+// Ring around the core where the prey can bait the hunter into following it in.
+// Drawn on-screen so the player has a clear target to thread.
+export const WELL_BAIT_RADIUS = 240;

@@ -15,7 +15,7 @@ import {
   HUNTER_LUNGE_IMPULSE,
   HUNTER_AVOID_DIST,
   HUNTER_AVOID_MIN_RADIUS,
-  WELL_CORE_RADIUS,
+  WELL_BAIT_RADIUS,
   HUNTER_LURE_COMMIT,
 } from '../constants';
 
@@ -109,16 +109,15 @@ export function updateHunter(
     if (dist < well.radius && dist > 1) {
       const depth = (well.radius - dist) / well.radius;
       const preyDist = Math.hypot(ppos.x - well.x, ppos.y - well.y);
-      // The bait only works from inside the lethal inner band: the prey has to
-      // risk the kill-core itself to make the hunter commit. Skimming the safe
-      // outer field does nothing — you can't slingshot the rim and fool it too.
-      const baitZone = WELL_CORE_RADIUS * 2.1;
-      if (preyDist < baitZone) {
-        // Latch the commitment: the prey will slingshot clear in a fraction of
-        // a second, but the hunter stays locked on long enough for gravity to
+      // The bait works from inside the visible inner band: thread it and the
+      // hunter commits hard — flat strength so a clean pass anywhere in the
+      // ring lands, not just a pixel-perfect dive at the core.
+      if (preyDist < WELL_BAIT_RADIUS) {
+        // Latch the commitment: the prey slingshots clear in a fraction of a
+        // second, but the hunter stays locked on long enough for gravity to
         // finish dragging it into the core.
         hunter.lureCommitUntil = playTime + HUNTER_LURE_COMMIT;
-        hunter.lureStrength = 0.7 * (1 - preyDist / baitZone);
+        hunter.lureStrength = 0.85;
       }
       const lure = playTime < hunter.lureCommitUntil ? hunter.lureStrength : 0;
       const avoidStrength = 2.6 * (1 - lure);

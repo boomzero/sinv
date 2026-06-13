@@ -1,7 +1,14 @@
 import type { Game } from '../game';
 import type { Asteroid, Pickup, GravityWell, PickupType } from '../entities/types';
 import { drawStarfield } from './starfield';
-import { MAP_W, MAP_H, PLAYER_RADIUS, HUNTER_RADIUS } from '../constants';
+import {
+  MAP_W,
+  MAP_H,
+  PLAYER_RADIUS,
+  HUNTER_RADIUS,
+  WELL_CORE_RADIUS,
+  WELL_BAIT_RADIUS,
+} from '../constants';
 import { GATE_RADIUS } from '../entities/pickup';
 
 // --- Pre-rendered glow sprites for pickups (shadowBlur is expensive live) ---
@@ -159,6 +166,25 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
     ctx.strokeStyle = `rgba(220,245,255,${0.4 * (1 - t)})`;
     ctx.beginPath();
     ctx.arc(0, 0, 30 + t * 150, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  if (black) {
+    // Bait band: thread this ring to lure the hunter in (it commits and
+    // follows). Dashed and calm so it reads as "playable", not a hard wall.
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = `rgba(200,130,255,${0.3 + 0.1 * Math.sin(time * 2)})`;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 10]);
+    ctx.beginPath();
+    ctx.arc(0, 0, WELL_BAIT_RADIUS, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Kill core: cross this and you (or the hunter) are gone. Solid red warning.
+    ctx.strokeStyle = `rgba(255,70,70,${0.55 + 0.2 * Math.sin(time * 4)})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, WELL_CORE_RADIUS, 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -340,6 +366,17 @@ function drawHunter(ctx: CanvasRenderingContext2D, game: Game): void {
 
   ctx.save();
   ctx.translate(pos.x, pos.y);
+
+  // Lured: a swirling purple ring shows the bait landed and the hunter is
+  // committed — it won't dodge the core now, so it's about to be swallowed.
+  if (game.playT < hunter.lureCommitUntil) {
+    const a = 0.5 + 0.4 * Math.sin(game.time * 10);
+    ctx.strokeStyle = `rgba(200,130,255,${a})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, HUNTER_RADIUS + 8, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   if (hunter.telegraph > 0) {
     // Lunge incoming: expanding red flash ring
