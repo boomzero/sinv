@@ -15,6 +15,7 @@ import {
   HUNTER_LUNGE_IMPULSE,
   HUNTER_AVOID_DIST,
   HUNTER_AVOID_MIN_RADIUS,
+  WELL_CORE_RADIUS,
 } from '../constants';
 
 export function createHunter(ctx: PhysicsContext, x: number, y: number): Hunter {
@@ -105,8 +106,12 @@ export function updateHunter(
     if (dist < well.radius && dist > 1) {
       const depth = (well.radius - dist) / well.radius;
       const preyDist = Math.hypot(ppos.x - well.x, ppos.y - well.y);
-      // Tighter the prey hugs the core, the more recklessly the hunter follows.
-      const lure = preyDist < well.radius ? 1 - 0.7 * (1 - preyDist / well.radius) : 0;
+      // The bait only works from inside the lethal inner band: the prey has to
+      // risk the kill-core itself to make the hunter commit. Skimming the safe
+      // outer field does nothing — you can't slingshot the rim and fool it too.
+      const baitZone = WELL_CORE_RADIUS * 2.1;
+      const lure =
+        preyDist < baitZone ? 0.7 * (1 - preyDist / baitZone) : 0;
       const avoidStrength = 2.6 * (1 - lure);
       const push = maxSpeed * avoidStrength * depth * depth;
       desired.x += (dx / dist) * push;
