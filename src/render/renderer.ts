@@ -491,45 +491,42 @@ function label(
 }
 
 function drawDebugWorld(ctx: CanvasRenderingContext2D, game: Game): void {
-  // Asteroids: convex collider outline + radius label
+  // Native Rapier collider shapes — the ground truth for every physics body
+  const { vertices, colors } = game.physics.world.debugRender();
+  ctx.save();
+  ctx.lineWidth = 1;
+  for (let i = 0; i < vertices.length; i += 4) {
+    const r = (colors[i * 2]     * 255) | 0;
+    const g = (colors[i * 2 + 1] * 255) | 0;
+    const b = (colors[i * 2 + 2] * 255) | 0;
+    const a =  colors[i * 2 + 3];
+    ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+    ctx.beginPath();
+    ctx.moveTo(vertices[i],     vertices[i + 1]);
+    ctx.lineTo(vertices[i + 2], vertices[i + 3]);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Velocity arrows
   for (const a of game.asteroids) {
     const pos = a.body.translation();
-    const rot = a.body.rotation();
-    ctx.save();
-    ctx.translate(pos.x, pos.y);
-    ctx.rotate(rot);
-    ctx.strokeStyle = 'rgba(255,200,0,0.7)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
-    ctx.beginPath();
-    const v = a.verts;
-    ctx.moveTo(v[0], v[1]);
-    for (let i = 1; i < v.length / 2; i++) ctx.lineTo(v[i * 2], v[i * 2 + 1]);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
     const vel = a.body.linvel();
     const spd = Math.hypot(vel.x, vel.y);
     if (spd > 5) arrow(ctx, pos.x, pos.y, vel.x * 0.15, vel.y * 0.15, 'rgba(255,200,0,0.5)');
     label(ctx, pos.x, pos.y - a.radius - 8, `r=${a.radius | 0}`, 'rgba(255,200,0,0.6)');
   }
 
-  // Player collider + velocity + lookahead whisker
   if (game.player.alive) {
     const pp = game.player.body.translation();
     const pv = game.player.body.linvel();
-    ring(ctx, pp.x, pp.y, PLAYER_RADIUS, 'rgba(0,255,200,0.9)');
     arrow(ctx, pp.x, pp.y, pv.x * 0.2, pv.y * 0.2, 'rgba(0,255,200,0.7)');
-    const spd = Math.hypot(pv.x, pv.y);
-    label(ctx, pp.x, pp.y + PLAYER_RADIUS + 12, `v=${spd | 0}`, 'rgba(0,255,200,0.8)');
+    label(ctx, pp.x, pp.y + PLAYER_RADIUS + 12, `v=${Math.hypot(pv.x, pv.y) | 0}`, 'rgba(0,255,200,0.8)');
   }
 
-  // Hunter collider + velocity + look-ahead ray
   if (!game.hunterRespawning) {
     const hp = game.hunter.body.translation();
     const hv = game.hunter.body.linvel();
-    ring(ctx, hp.x, hp.y, HUNTER_RADIUS, 'rgba(255,80,80,0.9)');
     const spd = Math.hypot(hv.x, hv.y);
     if (spd > 5) {
       arrow(ctx, hp.x, hp.y, hv.x * 0.2, hv.y * 0.2, 'rgba(255,80,80,0.7)');
@@ -551,7 +548,7 @@ function drawDebugWorld(ctx: CanvasRenderingContext2D, game: Game): void {
     label(ctx, hp.x, hp.y + HUNTER_RADIUS + 24, `lunge=${lt.toFixed(1)}/${HUNTER_LUNGE_PERIOD}`, 'rgba(255,80,80,0.6)');
   }
 
-  // Gravity wells: influence radius, bait band, core
+  // Gravity well gameplay rings (not physics bodies — no Rapier shape for these)
   for (const well of game.wells) {
     const black = well.polarity === 1;
     if (black) {
@@ -567,25 +564,8 @@ function drawDebugWorld(ctx: CanvasRenderingContext2D, game: Game): void {
     }
   }
 
-  // Pickups: sensor circle
-  for (const p of game.pickups) {
-    if (p.taken) continue;
-    ctx.save();
-    ctx.strokeStyle = 'rgba(100,255,180,0.4)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([2, 4]);
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-  }
-
-  // Screen-space HUD overlay (not in world space — draw after ctx.restore in drawScene,
-  // but we're still inside the world-space save here, so we use a nested approach)
-  // We label it via a fixed 2D position instead.
+  // Screen-space HUD box (reset transform to draw in CSS pixels)
   ctx.save();
-  // Temporarily undo the camera transform for screen-space text
   const cam = game.camera;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
@@ -596,7 +576,7 @@ function drawDebugWorld(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.textBaseline = 'top';
   const pp2 = game.player.body.translation();
   const pv2 = game.player.body.linvel();
-  ctx.fillText(`DEBUG  (` + '`' + ` to toggle)`, 16, 14);
+  ctx.fillText('DEBUG  (` to toggle)', 16, 14);
   ctx.fillStyle = 'rgba(200,200,200,0.9)';
   ctx.fillText(`pos  ${pp2.x | 0}, ${pp2.y | 0}`, 16, 30);
   ctx.fillText(`vel  ${Math.hypot(pv2.x, pv2.y) | 0} u/s`, 16, 46);
