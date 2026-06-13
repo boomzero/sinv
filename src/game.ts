@@ -35,6 +35,8 @@ import {
   WHITE_HOLE_COUNT,
   WHITE_HOLE_RADIUS,
   WHITE_HOLE_PUSH_FACTOR,
+  WHITE_HOLE_SLING_IN,
+  WHITE_HOLE_SLING_OUT,
   HUNTER_SHOVE_DV,
   WELL_RADIUS,
   WELL_PULL,
@@ -392,7 +394,21 @@ export class Game {
             factor *
             well.polarity *
             (well.polarity === -1 ? WHITE_HOLE_PUSH_FACTOR : 1);
-          const f = (accel * body.mass()) / dist;
+          let f = (accel * body.mass()) / dist;
+
+          // White-hole slingshot (ships only): scale the radial push by whether
+          // the ship is diving in or being flung out. Soft in, hard out, so a
+          // curving pass nets speed instead of bouncing back at the same energy.
+          if (
+            well.polarity === -1 &&
+            (body === this.player.body || body === this.hunter.body)
+          ) {
+            const v = body.linvel();
+            // outward radial speed: >0 receding, <0 approaching (dx points inward)
+            const vr = (v.x * -dx + v.y * -dy) / dist;
+            f *= vr > 0 ? WHITE_HOLE_SLING_OUT : WHITE_HOLE_SLING_IN;
+          }
+
           body.addForce({ x: dx * f, y: dy * f }, true);
 
           // Inside a black hole's bait band, ships hit heavy drag that bleeds

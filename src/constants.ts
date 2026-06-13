@@ -72,6 +72,12 @@ export const WELL_RADIUS = 460;
 // Smaller but pushier than black wells: a tight, near-impenetrable bumper
 export const WHITE_HOLE_RADIUS = 280;
 export const WHITE_HOLE_PUSH_FACTOR = 1.5;
+// Slingshot asymmetry (ships only): the repulsor is soft on the dive in and
+// hard on the way out, so a curving pass leaves faster than it arrived — a
+// real boost, not a dead bounce. A purely radial field is conservative (same
+// speed out as in), which is why white holes used to feel like plain walls.
+export const WHITE_HOLE_SLING_IN = 0.45; // push scale while approaching the core
+export const WHITE_HOLE_SLING_OUT = 2.3; // push scale while receding (the kick)
 export const WELL_PULL = 700000;
 export const WELL_FALLOFF = 1.4;
 export const WELL_MIN_DIST = 45;
