@@ -10,6 +10,7 @@ import {
   WELL_BAIT_RADIUS,
   WELL_RADIUS,
   WHITE_HOLE_RADIUS,
+  WHITE_HOLE_SWIRL_DIR,
   HUNTER_AVOID_DIST,
   HUNTER_LUNGE_PERIOD,
 } from '../constants';
@@ -155,10 +156,12 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
   ctx.arc(0, 0, well.radius, 0, Math.PI * 2);
   ctx.fill();
 
-  // Swirl arcs: black holes spiral inward, white holes spin the other way out
+  // Swirl arcs. White holes spin in the same sense as their tangential vortex
+  // force (WHITE_HOLE_SWIRL_DIR), so the visible whirl honestly shows the way
+  // it'll fling a grazing ship.
   ctx.strokeStyle = black ? 'rgba(200,130,255,0.5)' : 'rgba(210,240,255,0.55)';
   ctx.lineWidth = 2;
-  const spin = black ? 1 : -1;
+  const spin = black ? 1 : WHITE_HOLE_SWIRL_DIR;
   for (let i = 0; i < 3; i++) {
     const a0 = spin * time * (0.6 + i * 0.25) + (i * Math.PI * 2) / 3;
     const r = 40 + i * 45;
@@ -167,12 +170,28 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
     ctx.stroke();
   }
   if (!black) {
-    // Expanding shockwave rings sell the outward push
-    const t = (time * 0.7) % 1;
-    ctx.strokeStyle = `rgba(220,245,255,${0.4 * (1 - t)})`;
-    ctx.beginPath();
-    ctx.arc(0, 0, 30 + t * 150, 0, Math.PI * 2);
-    ctx.stroke();
+    // Vortex chevrons: arrowheads riding the whirl, pointing the way it throws
+    // you. This is the slingshot's tell — graze along the chevrons for a boost.
+    const dir = WHITE_HOLE_SWIRL_DIR;
+    const rr = well.radius * 0.55;
+    const n = 6;
+    ctx.strokeStyle = 'rgba(180,230,255,0.55)';
+    ctx.lineWidth = 2;
+    for (let k = 0; k < n; k++) {
+      const th = (k / n) * Math.PI * 2 + dir * time * 0.8;
+      const px = Math.cos(th) * rr;
+      const py = Math.sin(th) * rr;
+      const tx = dir * -Math.sin(th); // screen tangent in the spin direction
+      const ty = dir * Math.cos(th);
+      const ax = -ty; // perpendicular, for the chevron wings
+      const ay = tx;
+      const s = 7;
+      ctx.beginPath();
+      ctx.moveTo(px - tx * s + ax * s * 0.6, py - ty * s + ay * s * 0.6);
+      ctx.lineTo(px + tx * s, py + ty * s);
+      ctx.lineTo(px - tx * s - ax * s * 0.6, py - ty * s - ay * s * 0.6);
+      ctx.stroke();
+    }
   }
 
   if (black && debug) {

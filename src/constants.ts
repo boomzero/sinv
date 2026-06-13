@@ -71,13 +71,15 @@ export const WHITE_HOLE_COUNT = 2; // repulsors: same falloff, opposite sign
 export const WELL_RADIUS = 460;
 // Smaller but pushier than black wells: a tight, near-impenetrable bumper
 export const WHITE_HOLE_RADIUS = 280;
-export const WHITE_HOLE_PUSH_FACTOR = 1.5;
-// Slingshot asymmetry (ships only): the repulsor is soft on the dive in and
-// hard on the way out, so a curving pass leaves faster than it arrived — a
-// real boost, not a dead bounce. A purely radial field is conservative (same
-// speed out as in), which is why white holes used to feel like plain walls.
-export const WHITE_HOLE_SLING_IN = 0.45; // push scale while approaching the core
-export const WHITE_HOLE_SLING_OUT = 2.3; // push scale while receding (the kick)
+export const WHITE_HOLE_PUSH_FACTOR = 1.3;
+// White holes are spinning vortices: on top of repelling, they drag passing
+// ships tangentially (frame-dragging / whirlpool). Graze one along its spin and
+// you get whipped around and flung out faster — a slingshot you can SEE, because
+// the rendered swirl rotates the same way the force throws you. A purely radial
+// repulsor is conservative (same speed out as in), which is why white holes used
+// to feel like dead walls. The radial push still stops you parking on center.
+export const WHITE_HOLE_SWIRL = 1.8; // tangential strength vs the radial push
+export const WHITE_HOLE_SWIRL_DIR = 1; // +1 = CCW (math) / CW on screen; render matches
 export const WELL_PULL = 700000;
 export const WELL_FALLOFF = 1.4;
 export const WELL_MIN_DIST = 45;
