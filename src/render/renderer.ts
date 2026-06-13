@@ -170,18 +170,15 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
   }
 
   if (black) {
-    // Bait band: thread this radius to lure the hunter in. Rendered as faint
-    // swirling arcs (not a hard dashed ring) so it reads as part of the well's
-    // pull, a subtle target rather than a wall.
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = `rgba(200,130,255,${0.16 + 0.06 * Math.sin(time * 2)})`;
+    // 4th swirl level at bait-band radius — same style as the inner arcs above
+    // so it blends in as ambient decoration rather than a distinct boundary.
+    const a0bait = time * (0.6 + 3 * 0.25) + (3 * Math.PI * 2) / 3;
+    ctx.strokeStyle = 'rgba(200,130,255,0.5)';
     ctx.lineWidth = 2;
-    for (let i = 0; i < 4; i++) {
-      const a0 = time * 0.5 + (i * Math.PI) / 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, WELL_BAIT_RADIUS, a0, a0 + Math.PI * 0.3);
-      ctx.stroke();
-    }
+    ctx.beginPath();
+    ctx.arc(0, 0, WELL_BAIT_RADIUS, a0bait, a0bait + Math.PI * 1.2);
+    ctx.stroke();
+
     // Kill core: cross this and you (or the hunter) are gone. Solid red warning.
     ctx.strokeStyle = `rgba(255,70,70,${0.55 + 0.2 * Math.sin(time * 4)})`;
     ctx.lineWidth = 2;
