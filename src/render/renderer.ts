@@ -8,6 +8,10 @@ import {
   HUNTER_RADIUS,
   WELL_CORE_RADIUS,
   WELL_BAIT_RADIUS,
+  WELL_RADIUS,
+  WHITE_HOLE_RADIUS,
+  HUNTER_AVOID_DIST,
+  HUNTER_LUNGE_PERIOD,
 } from '../constants';
 import { GATE_RADIUS } from '../entities/pickup';
 
@@ -117,6 +121,8 @@ export function drawScene(
   game.particles.draw(ctx);
   drawHunter(ctx, game);
   drawPlayer(ctx, game);
+
+  if (game.debugDraw) drawDebugWorld(ctx, game);
 
   ctx.restore();
 }
@@ -419,5 +425,182 @@ function drawHunter(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.beginPath();
   ctx.arc(0, 0, 5, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
+}
+
+// --- Debug overlay (toggled with ` key) ---
+
+function ring(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  color: string,
+  dash: number[] = [],
+): void {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash(dash);
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function arrow(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  color: string,
+): void {
+  const ex = x + vx;
+  const ey = y + vy;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(ex, ey);
+  const a = Math.atan2(vy, vx);
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - 8 * Math.cos(a - 0.4), ey - 8 * Math.sin(a - 0.4));
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - 8 * Math.cos(a + 0.4), ey - 8 * Math.sin(a + 0.4));
+  ctx.stroke();
+  ctx.restore();
+}
+
+function label(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  text: string,
+  color = 'rgba(255,255,255,0.8)',
+): void {
+  ctx.save();
+  ctx.font = '11px monospace';
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function drawDebugWorld(ctx: CanvasRenderingContext2D, game: Game): void {
+  // Asteroids: convex collider outline + radius label
+  for (const a of game.asteroids) {
+    const pos = a.body.translation();
+    const rot = a.body.rotation();
+    ctx.save();
+    ctx.translate(pos.x, pos.y);
+    ctx.rotate(rot);
+    ctx.strokeStyle = 'rgba(255,200,0,0.7)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    const v = a.verts;
+    ctx.moveTo(v[0], v[1]);
+    for (let i = 1; i < v.length / 2; i++) ctx.lineTo(v[i * 2], v[i * 2 + 1]);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    const vel = a.body.linvel();
+    const spd = Math.hypot(vel.x, vel.y);
+    if (spd > 5) arrow(ctx, pos.x, pos.y, vel.x * 0.15, vel.y * 0.15, 'rgba(255,200,0,0.5)');
+    label(ctx, pos.x, pos.y - a.radius - 8, `r=${a.radius | 0}`, 'rgba(255,200,0,0.6)');
+  }
+
+  // Player collider + velocity + lookahead whisker
+  if (game.player.alive) {
+    const pp = game.player.body.translation();
+    const pv = game.player.body.linvel();
+    ring(ctx, pp.x, pp.y, PLAYER_RADIUS, 'rgba(0,255,200,0.9)');
+    arrow(ctx, pp.x, pp.y, pv.x * 0.2, pv.y * 0.2, 'rgba(0,255,200,0.7)');
+    const spd = Math.hypot(pv.x, pv.y);
+    label(ctx, pp.x, pp.y + PLAYER_RADIUS + 12, `v=${spd | 0}`, 'rgba(0,255,200,0.8)');
+  }
+
+  // Hunter collider + velocity + look-ahead ray
+  if (!game.hunterRespawning) {
+    const hp = game.hunter.body.translation();
+    const hv = game.hunter.body.linvel();
+    ring(ctx, hp.x, hp.y, HUNTER_RADIUS, 'rgba(255,80,80,0.9)');
+    const spd = Math.hypot(hv.x, hv.y);
+    if (spd > 5) {
+      arrow(ctx, hp.x, hp.y, hv.x * 0.2, hv.y * 0.2, 'rgba(255,80,80,0.7)');
+      const nx = hv.x / spd;
+      const ny = hv.y / spd;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,80,80,0.35)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(hp.x, hp.y);
+      ctx.lineTo(hp.x + nx * HUNTER_AVOID_DIST, hp.y + ny * HUNTER_AVOID_DIST);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+    label(ctx, hp.x, hp.y + HUNTER_RADIUS + 12, `v=${spd | 0}`, 'rgba(255,80,80,0.8)');
+    const lt = game.hunter.lungeTimer;
+    label(ctx, hp.x, hp.y + HUNTER_RADIUS + 24, `lunge=${lt.toFixed(1)}/${HUNTER_LUNGE_PERIOD}`, 'rgba(255,80,80,0.6)');
+  }
+
+  // Gravity wells: influence radius, bait band, core
+  for (const well of game.wells) {
+    const black = well.polarity === 1;
+    if (black) {
+      ring(ctx, well.x, well.y, WELL_RADIUS, 'rgba(180,80,255,0.4)', [6, 6]);
+      ring(ctx, well.x, well.y, WELL_BAIT_RADIUS, 'rgba(200,130,255,0.8)', [4, 4]);
+      ring(ctx, well.x, well.y, WELL_CORE_RADIUS, 'rgba(255,40,40,0.9)');
+      label(ctx, well.x, well.y - WELL_RADIUS - 10, 'BLACK HOLE', 'rgba(180,80,255,0.8)');
+      label(ctx, well.x, well.y - WELL_BAIT_RADIUS - 10, `bait r=${WELL_BAIT_RADIUS}`, 'rgba(200,130,255,0.8)');
+      label(ctx, well.x, well.y - WELL_CORE_RADIUS - 10, `core r=${WELL_CORE_RADIUS}`, 'rgba(255,40,40,0.8)');
+    } else {
+      ring(ctx, well.x, well.y, WHITE_HOLE_RADIUS, 'rgba(150,220,255,0.5)', [6, 6]);
+      label(ctx, well.x, well.y - WHITE_HOLE_RADIUS - 10, 'WHITE HOLE', 'rgba(150,220,255,0.8)');
+    }
+  }
+
+  // Pickups: sensor circle
+  for (const p of game.pickups) {
+    if (p.taken) continue;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(100,255,180,0.4)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // Screen-space HUD overlay (not in world space — draw after ctx.restore in drawScene,
+  // but we're still inside the world-space save here, so we use a nested approach)
+  // We label it via a fixed 2D position instead.
+  ctx.save();
+  // Temporarily undo the camera transform for screen-space text
+  const cam = game.camera;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(8, 8, 210, 88);
+  ctx.font = '12px monospace';
+  ctx.fillStyle = '#0ff';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  const pp2 = game.player.body.translation();
+  const pv2 = game.player.body.linvel();
+  ctx.fillText(`DEBUG  (` + '`' + ` to toggle)`, 16, 14);
+  ctx.fillStyle = 'rgba(200,200,200,0.9)';
+  ctx.fillText(`pos  ${pp2.x | 0}, ${pp2.y | 0}`, 16, 30);
+  ctx.fillText(`vel  ${Math.hypot(pv2.x, pv2.y) | 0} u/s`, 16, 46);
+  ctx.fillText(`hull ${game.player.hull | 0}  boost ${game.player.boostFuel | 0}`, 16, 62);
+  ctx.fillText(`cam  ${cam.x | 0}, ${cam.y | 0}`, 16, 78);
   ctx.restore();
 }

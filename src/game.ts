@@ -86,9 +86,10 @@ export class Game {
   state: GameState = 'menu';
   lossReason: LossReason = 'caught';
   mouseSteer = localStorage.getItem('sinv-mouse') === '1';
+  debugDraw = false;
   difficultyIndex = loadDifficultyIndex();
-  private viewW = 0;
-  private viewH = 0;
+  viewW = 0;
+  viewH = 0;
 
   get difficulty() {
     return DIFFICULTIES[this.difficultyIndex];
@@ -267,6 +268,7 @@ export class Game {
       this.mouseSteer = !this.mouseSteer;
       localStorage.setItem('sinv-mouse', this.mouseSteer ? '1' : '0');
     }
+    if (this.input.justPressed('Backquote')) this.debugDraw = !this.debugDraw;
     if (this.input.justPressed('KeyR') && this.state !== 'menu') {
       this.reset((Math.random() * 2 ** 31) | 0);
       this.state = 'playing';
