@@ -156,9 +156,10 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
   ctx.arc(0, 0, well.radius, 0, Math.PI * 2);
   ctx.fill();
 
-  // Swirl arcs. Black holes get plain spiraling arcs; white holes draw theirs
-  // as comet streaks — bright leading head fading to tail — so the spin reads
-  // as motion and honestly shows the way the vortex flings a grazing ship.
+  // Swirl. Black holes get plain spiraling arcs; white holes are drawn as a
+  // proper whirlpool — spiral arms coiling into the drain, rotating in the same
+  // sense as the tangential vortex force so the spin (and thus the slingshot
+  // throw direction) reads straight off the visual.
   if (black) {
     ctx.strokeStyle = 'rgba(200,130,255,0.5)';
     ctx.lineWidth = 2;
@@ -171,22 +172,30 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
     }
   } else {
     const dir = WHITE_HOLE_SWIRL_DIR;
-    const span = Math.PI * 1.2;
-    const seg = 16;
-    ctx.lineWidth = 2.5;
-    for (let i = 0; i < 3; i++) {
-      const r = 40 + i * 45;
-      const head = dir * time * (0.6 + i * 0.25) + (i * Math.PI * 2) / 3;
-      for (let j = 0; j < seg; j++) {
-        const u0 = j / seg;
-        const u1 = (j + 1) / seg;
-        const aA = head - dir * u0 * span;
-        const aB = head - dir * u1 * span;
-        ctx.strokeStyle = `rgba(210,240,255,${0.6 * (1 - u0)})`;
+    const arms = 3;
+    const winds = 1.3; // turns each arm makes from rim to center
+    const rMax = well.radius * 0.62;
+    const segs = 40;
+    const rot = dir * time * 0.9; // overall spin
+    for (let a = 0; a < arms; a++) {
+      const base = (a / arms) * Math.PI * 2 + rot;
+      let px = Math.cos(base) * rMax;
+      let py = Math.sin(base) * rMax;
+      for (let j = 1; j <= segs; j++) {
+        const t = j / segs; // 0 at rim, 1 at the drain
+        const r = rMax * (1 - t);
+        const ang = base + dir * t * winds * Math.PI * 2;
+        const x = Math.cos(ang) * r;
+        const y = Math.sin(ang) * r;
+        const fade = Math.sin(t * Math.PI); // dim at rim and center, bright mid
+        ctx.strokeStyle = `rgba(205,238,255,${0.55 * fade})`;
+        ctx.lineWidth = 0.8 + 2.4 * (1 - t); // tapers thin toward the drain
         ctx.beginPath();
-        ctx.moveTo(Math.cos(aA) * r, Math.sin(aA) * r);
-        ctx.lineTo(Math.cos(aB) * r, Math.sin(aB) * r);
+        ctx.moveTo(px, py);
+        ctx.lineTo(x, y);
         ctx.stroke();
+        px = x;
+        py = y;
       }
     }
   }
