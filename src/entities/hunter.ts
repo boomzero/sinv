@@ -92,6 +92,11 @@ export function updateHunter(
   // into a core, so it actively steers away from any deadly well it's inside.
   // The push ramps with depth^2, so it'll skim a field edge while chasing but
   // bolt outward once it gets dangerously close to the center.
+  //
+  // Commitment, though, makes it baitable: if the prey is leading it through
+  // the same well, the hunter fixates on the catch and won't bail nearly as
+  // hard — so a player who skims a core and jukes out at the last moment can
+  // lure the chasing hunter straight into the singularity. No shield needed.
   for (const well of wells) {
     if (well.polarity !== 1) continue;
     const dx = pos.x - well.x;
@@ -99,7 +104,11 @@ export function updateHunter(
     const dist = Math.hypot(dx, dy);
     if (dist < well.radius && dist > 1) {
       const depth = (well.radius - dist) / well.radius;
-      const push = maxSpeed * 2.6 * depth * depth;
+      const preyDist = Math.hypot(ppos.x - well.x, ppos.y - well.y);
+      // Tighter the prey hugs the core, the more recklessly the hunter follows.
+      const lure = preyDist < well.radius ? 1 - 0.7 * (1 - preyDist / well.radius) : 0;
+      const avoidStrength = 2.6 * (1 - lure);
+      const push = maxSpeed * avoidStrength * depth * depth;
       desired.x += (dx / dist) * push;
       desired.y += (dy / dist) * push;
     }
