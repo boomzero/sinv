@@ -89,6 +89,8 @@ export class Game {
   debugDraw = false;
   /** playT when the first BHAS override intercept was triggered this run (−1 = not yet). */
   interceptAt = -1;
+  /** playT when lunges first unlocked this run (−1 = not yet). */
+  lungeUnlockedAt = -1;
   difficultyIndex = loadDifficultyIndex();
   viewW = 0;
   viewH = 0;
@@ -148,6 +150,7 @@ export class Game {
     this.gemsCollected = 0;
     this.orbsCollected = 0;
     this.interceptAt = -1;
+    this.lungeUnlockedAt = -1;
 
     const rng = mulberry32(seed);
     createWalls(this.physics);
@@ -338,6 +341,9 @@ export class Game {
         );
         if (this.hunter.lureCommitUntil > this.playT && this.interceptAt < 0) {
           this.interceptAt = this.playT;
+        }
+        if (this.gemsCollected >= this.gemCount * HUNTER_LUNGE_GEM_FRACTION && this.lungeUnlockedAt < 0) {
+          this.lungeUnlockedAt = this.playT;
         }
       }
     } else {

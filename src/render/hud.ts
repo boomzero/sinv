@@ -50,6 +50,15 @@ export function drawHud(
     const a = age < 0.4 ? age / 0.4 : age > 3.2 ? (4 - age) / 0.8 : 1;
     ctx.fillStyle = `rgba(200,130,255,${0.85 * a})`;
     ctx.fillText('⚠ INTERCEPT: HUNTER BHAS DISABLED — PILOT OVERRIDE', w / 2, 16);
+  } else if (
+    game.state === 'playing' &&
+    game.lungeUnlockedAt >= 0 &&
+    game.playT - game.lungeUnlockedAt < 4
+  ) {
+    const age = game.playT - game.lungeUnlockedAt;
+    const a = age < 0.4 ? age / 0.4 : age > 3.2 ? (4 - age) / 0.8 : 1;
+    ctx.fillStyle = `rgba(255,140,0,${0.9 * a})`;
+    ctx.fillText('⚠ INTERCEPT: HUNTER WEAPONS HOT — LUNGE DRIVE ARMED', w / 2, 16);
   } else if (game.state === 'playing' && game.playT < game.difficulty.hunterWarmup) {
     const left = Math.ceil(game.difficulty.hunterWarmup - game.playT);
     ctx.fillStyle = `rgba(255,90,90,${0.6 + 0.4 * Math.sin(game.time * 6)})`;

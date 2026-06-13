@@ -386,13 +386,21 @@ function drawHunter(ctx: CanvasRenderingContext2D, game: Game): void {
   }
 
   if (hunter.telegraph > 0) {
-    // Lunge incoming: expanding red flash ring
+    // Lunge telegraphed: orange expanding ring + label, distinct from the red stun ring
     const t = 1 - hunter.telegraph / 0.8;
-    ctx.strokeStyle = `rgba(255,60,60,${0.8 * (1 - t)})`;
+    const a = 0.9 * (1 - t);
+    ctx.strokeStyle = `rgba(255,140,0,${a})`;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(0, 0, HUNTER_RADIUS + 6 + t * 26, 0, Math.PI * 2);
     ctx.stroke();
+    if (t < 0.5) {
+      ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = `rgba(255,140,0,${a * 1.4})`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('LUNGE', HUNTER_RADIUS + 12, 0);
+    }
   }
   if (stunned) {
     const a = 0.5 + 0.35 * Math.sin(game.time * 12);
