@@ -67,6 +67,16 @@ export function drawHud(
     ctx.fillStyle = `rgba(93,255,138,${0.7 + 0.3 * Math.sin(game.time * 5)})`;
     ctx.fillText('EXIT GATE ONLINE — RUN!', w / 2, 16);
   }
+
+  // Close call flash — independent banner below the main status row
+  if (game.state === 'playing' && game.lastCloseCallAt >= 0 && game.playT - game.lastCloseCallAt < 2) {
+    const age = game.playT - game.lastCloseCallAt;
+    const a = age < 0.15 ? age / 0.15 : age > 1.5 ? (2 - age) / 0.5 : 1;
+    ctx.font = `bold 14px ${FONT}`;
+    ctx.fillStyle = `rgba(255,153,68,${0.9 * a})`;
+    ctx.fillText(`CLOSE CALL  +${game.lastCloseCallBonus}`, w / 2, 42);
+  }
+
   ctx.restore();
 }
 
@@ -265,6 +275,11 @@ export function drawOverlay(
       w / 2,
       cy + 38,
     );
+    ctx.fillText(
+      'thread within 90 units of the hunter and escape for a CLOSE CALL bonus',
+      w / 2,
+      cy + 58,
+    );
 
     // Controls
     ctx.fillStyle = 'rgba(232,244,255,0.7)';
@@ -387,6 +402,7 @@ export function drawOverlay(
         ry += 26;
       };
       row('gems collected', b.gems);
+      if (b.closeCalls > 0) row('close calls', b.closeCalls);
       row('escape bonus', b.escapeBonus);
       row('hull remaining', b.hullBonus);
       row('boost remaining', b.boostBonus);

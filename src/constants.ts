@@ -94,3 +94,9 @@ export const WELL_BAIT_RADIUS = 140;
 // that keeps a slingshot clear of the core, so coasting through spirals you in:
 // you must hold boost the whole pass or the core takes you.
 export const WELL_BAIT_DRAG = 1.4;
+
+// Close call: bonus for threading the needle past the hunter and escaping
+export const CLOSE_CALL_DIST = 90;        // units from hunter center — "dangerously close"
+export const CLOSE_CALL_ESCAPE_DIST = 140; // distance that confirms the escape
+export const CLOSE_CALL_SCORE = 300;       // base score awarded per successful escape
+export const CLOSE_CALL_COOLDOWN = 3.5;   // seconds of lockout after scoring
