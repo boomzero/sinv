@@ -63,6 +63,10 @@ import {
   WIN_BASE_BONUS,
   WIN_TIME_PAR,
   WIN_TIME_BONUS_PER,
+  CLOSE_CALL_DIST,
+  CLOSE_CALL_ESCAPE_DIST,
+  CLOSE_CALL_SCORE,
+  CLOSE_CALL_COOLDOWN,
 } from './constants';
 
 export type GameState = 'menu' | 'playing' | 'paused' | 'gameover' | 'win';
@@ -70,6 +74,7 @@ export type LossReason = 'caught' | 'destroyed';
 
 export interface ScoreBreakdown {
   gems: number; // score banked from gems during the run
+  closeCalls: number; // bonuses earned from close encounters with the hunter
   escapeBonus: number; // flat reward + speed bonus for a fast getaway
   hullBonus: number; // points for surviving hull
   boostBonus: number; // points for leftover boost
@@ -93,6 +98,13 @@ export class Game {
   interceptAt = -1;
   /** playT when lunges first unlocked this run (−1 = not yet). */
   lungeUnlockedAt = -1;
+  /** True while the player is inside CLOSE_CALL_DIST of the hunter. */
+  closeCallActive = false;
+  closeCallCooldown = 0;
+  /** playT of the most recent successful close call (−1 = none yet). */
+  lastCloseCallAt = -1;
+  lastCloseCallBonus = 0;
+  totalCloseCallBonus = 0;
   difficultyIndex = loadDifficultyIndex();
   viewW = 0;
   viewH = 0;
@@ -153,6 +165,11 @@ export class Game {
     this.orbsCollected = 0;
     this.interceptAt = -1;
     this.lungeUnlockedAt = -1;
+    this.closeCallActive = false;
+    this.closeCallCooldown = 0;
+    this.lastCloseCallAt = -1;
+    this.lastCloseCallBonus = 0;
+    this.totalCloseCallBonus = 0;
 
     const rng = mulberry32(seed);
     createWalls(this.physics);
@@ -366,11 +383,46 @@ export class Game {
       this.handleContact(b, a);
     });
 
+    this.tickCloseCall(dt);
     this.particles.update(dt);
     const pos = this.player.body.translation();
     const vel = this.player.body.linvel();
     this.camera.follow(pos.x, pos.y, vel.x, vel.y, dt);
     this.input.endFrame();
+  }
+
+  private tickCloseCall(dt: number): void {
+    if (this.state !== 'playing' || !this.player.alive || this.hunterRespawning) {
+      this.closeCallActive = false;
+      return;
+    }
+    this.closeCallCooldown = Math.max(0, this.closeCallCooldown - dt);
+    const pp = this.player.body.translation();
+    const hp = this.hunter.body.translation();
+    const dist = Math.hypot(pp.x - hp.x, pp.y - hp.y);
+
+    if (!this.closeCallActive) {
+      // Only start a close call when the hunter is active and not stunned
+      if (
+        dist < CLOSE_CALL_DIST &&
+        this.closeCallCooldown <= 0 &&
+        this.hunter.stunnedUntil <= this.playT
+      ) {
+        this.closeCallActive = true;
+      }
+    } else if (dist > CLOSE_CALL_ESCAPE_DIST) {
+      const bonus = Math.round(
+        CLOSE_CALL_SCORE * this.player.mult * this.difficulty.scoreMultiplier,
+      );
+      this.score += bonus;
+      this.totalCloseCallBonus += bonus;
+      this.lastCloseCallAt = this.playT;
+      this.lastCloseCallBonus = bonus;
+      this.closeCallActive = false;
+      this.closeCallCooldown = CLOSE_CALL_COOLDOWN;
+      const p = this.player.body.translation();
+      this.particles.burst(p.x, p.y, 10, 220, 0.45, 3, '#ff9944');
+    }
   }
 
   private applyGravityWells(): void {
@@ -653,8 +705,9 @@ export class Game {
   private win(): void {
     this.state = 'win';
     const sm = this.difficulty.scoreMultiplier;
-    // Score banked from gems so far (already scaled by difficulty per-pickup)
-    const gems = this.score;
+    // Split banked score into gem points vs close-call bonuses for the breakdown
+    const closeCalls = this.totalCloseCallBonus;
+    const gems = this.score - closeCalls;
     // Escape bonus: a flat reward for reaching the gate plus a speed bonus that
     // pays out for every second the getaway beats par.
     const speedBonus = Math.max(0, WIN_TIME_PAR - this.playT) * WIN_TIME_BONUS_PER;
@@ -666,9 +719,10 @@ export class Game {
     );
     const hullBonus = Math.round(bonusHull * HULL_BONUS_PER * sm);
     const boostBonus = Math.round(this.player.boostFuel * BOOST_BONUS_PER * sm);
-    this.score = gems + escapeBonus + hullBonus + boostBonus;
+    this.score = this.score + escapeBonus + hullBonus + boostBonus;
     this.winBreakdown = {
       gems,
+      closeCalls,
       escapeBonus,
       hullBonus,
       boostBonus,
