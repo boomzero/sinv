@@ -419,12 +419,12 @@ function drawHunter(ctx: CanvasRenderingContext2D, game: Game): void {
     ctx.beginPath();
     ctx.arc(0, 0, HUNTER_RADIUS + 6 + t * 26, 0, Math.PI * 2);
     ctx.stroke();
-    if (t < 0.5) {
+    if (t < 0.6) {
       ctx.font = 'bold 9px monospace';
       ctx.fillStyle = `rgba(255,140,0,${a * 1.4})`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText('LUNGE', HUNTER_RADIUS + 12, 0);
+      ctx.fillText('CHARGING LUNGE', HUNTER_RADIUS + 12, 0);
     }
   }
   if (stunned) {
