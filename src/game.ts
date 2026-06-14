@@ -410,6 +410,9 @@ export class Game {
       ) {
         this.closeCallActive = true;
       }
+    } else if (this.hunter.stunnedUntil > this.playT) {
+      // Shield hit while the close call was active — not a skill pass, cancel it.
+      this.closeCallActive = false;
     } else if (dist > CLOSE_CALL_ESCAPE_DIST) {
       const bonus = Math.round(
         CLOSE_CALL_SCORE * this.player.mult * this.difficulty.scoreMultiplier,
