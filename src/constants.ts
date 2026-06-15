@@ -92,7 +92,6 @@ export const WHITE_HOLE_HUNTER_REPEL = 2.2;
 // Anything drifting into the core gets consumed; asteroids respawn elsewhere
 export const WELL_CORE_RADIUS = 70;
 // Ring around the core where the prey can bait the hunter into following it in.
-// Drawn on-screen so the player has a clear target to thread.
 export const WELL_BAIT_RADIUS = 140;
 // Velocity drag (extra damping, 1/s) inside the bait band. It saps the speed
 // that keeps a slingshot clear of the core, so coasting through spirals you in:
