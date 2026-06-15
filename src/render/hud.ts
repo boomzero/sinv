@@ -65,8 +65,9 @@ export function drawHud(
     ctx.fillText('⚠ INTERCEPTED MSG: HUNTER WEAPONS HOT — LUNGE DRIVE ARMED', w / 2, 16);
   } else if (game.state === 'playing' && game.playT < game.difficulty.hunterWarmup) {
     const left = Math.ceil(game.difficulty.hunterWarmup - game.playT);
+    const noun = game.hunters.length > 1 ? 'HUNTERS' : 'HUNTER';
     ctx.fillStyle = `rgba(255,90,90,${0.6 + 0.4 * Math.sin(game.time * 6)})`;
-    ctx.fillText(`HUNTER ONLINE IN ${left}`, w / 2, 16);
+    ctx.fillText(`${noun} ONLINE IN ${left}`, w / 2, 16);
   } else if (game.gate.active && game.state === 'playing') {
     ctx.fillStyle = `rgba(93,255,138,${0.7 + 0.3 * Math.sin(game.time * 5)})`;
     ctx.fillText('EXIT GATE ONLINE — RUN!', w / 2, 16);
@@ -263,7 +264,13 @@ export function drawOverlay(
       w / 2,
       cy - 70,
     );
-    ctx.fillText('One touch from the hunter ends the run.', w / 2, cy - 46);
+    ctx.fillText(
+      game.difficulty.hunterCount > 1
+        ? `One touch from either of the ${game.difficulty.hunterCount} hunters ends the run.`
+        : 'One touch from the hunter ends the run.',
+      w / 2,
+      cy - 46,
+    );
 
     // Hazard / pickup tips — quieter, scannable
     ctx.font = `13px ${FONT}`;
