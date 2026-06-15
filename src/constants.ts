@@ -52,7 +52,7 @@ export const GEM_BONUS_MULT = 3; // well-ring gems pay for the risk
 export const ORB_COUNT = 8;
 export const ORB_HEAL = 25; // multiplier orbs also patch the hull
 export const MULT_MAX = 5;
-export const SHIELD_COUNT = 5;
+export const SHIELD_COUNT = 8;
 export const BOOSTCELL_COUNT = 12;
 export const ASTEROID_COUNT = 35;
 
