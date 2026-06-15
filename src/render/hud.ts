@@ -276,24 +276,29 @@ export function drawOverlay(
     ctx.font = `13px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.5)';
     ctx.fillText(
-      'asteroids chip your hull  ·  black hole cores devour ships  ·  white holes slingshot you (and bounce the hunter off your tail)',
+      'asteroids chip your hull  ·  black hole cores devour ships',
       w / 2,
       cy - 4,
     );
     ctx.fillText(
+      'white holes slingshot you clear and shove the hunter off your tail',
+      w / 2,
+      cy + 16,
+    );
+    ctx.fillText(
       'cyan gems  +100 × mult  (×3 near wells)  ·  shields  absorb one hit & stun the hunter 3 s',
       w / 2,
-      cy + 18,
+      cy + 36,
     );
     ctx.fillText(
       'gold orbs  +1 multiplier (max ×5) · +25 hull  ·  lightning  refills boost tank',
       w / 2,
-      cy + 38,
+      cy + 56,
     );
     ctx.fillText(
       'thread within 90 units of the hunter and escape for a CLOSE CALL bonus',
       w / 2,
-      cy + 58,
+      cy + 76,
     );
 
     // Controls
@@ -301,12 +306,12 @@ export function drawOverlay(
     ctx.fillText(
       'W thrust  ·  A·D turn  ·  S retro  ·  SPACE boost  ·  P pause  ·  R restart',
       w / 2,
-      cy + 76,
+      cy + 96,
     );
     ctx.fillText(
       `M mouse steering (${game.mouseSteer ? 'ON' : 'OFF'}) — aim with cursor, hold click to thrust`,
       w / 2,
-      cy + 98,
+      cy + 118,
     );
 
     // Difficulty selector: [1] EASY  [2] NORMAL  [3] HARD
@@ -320,16 +325,16 @@ export function drawOverlay(
       const selected = i === game.difficultyIndex;
       ctx.textAlign = 'left';
       ctx.fillStyle = selected ? '#ffd24a' : 'rgba(232,244,255,0.4)';
-      ctx.fillText(label, x, cy + 146);
+      ctx.fillText(label, x, cy + 166);
       if (selected) {
-        ctx.fillRect(x, cy + 158, widths[i], 2);
+        ctx.fillRect(x, cy + 178, widths[i], 2);
       }
       x += widths[i] + gap;
     });
     ctx.textAlign = 'center';
     ctx.font = `12px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.45)';
-    ctx.fillText(game.difficulty.blurb, w / 2, cy + 180);
+    ctx.fillText(game.difficulty.blurb, w / 2, cy + 200);
 
     ctx.font = `bold 20px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
