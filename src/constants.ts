@@ -103,4 +103,4 @@ export const WELL_BAIT_DRAG = 1.4;
 export const CLOSE_CALL_DIST = 90;        // units from hunter center — "dangerously close"
 export const CLOSE_CALL_ESCAPE_DIST = 140; // distance that confirms the escape
 export const CLOSE_CALL_SCORE = 300;       // base score awarded per successful escape
-export const CLOSE_CALL_COOLDOWN = 3.5;   // seconds of lockout after scoring
+export const CLOSE_CALL_COOLDOWN = 10.0;   // seconds of lockout after scoring
