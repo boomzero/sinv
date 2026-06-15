@@ -30,6 +30,9 @@ export interface Hunter {
   lureCommitUntil: number;
   /** Strength (0..0.7) of the avoidance reduction captured at bait time. */
   lureStrength: number;
+  /** Corner this hunter spawns and re-materializes at. */
+  spawnX: number;
+  spawnY: number;
 }
 
 export interface Asteroid {

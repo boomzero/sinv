@@ -37,10 +37,14 @@ export function drawHud(
   // Status banners (top-center)
   ctx.textAlign = 'center';
   ctx.font = `bold 16px ${FONT}`;
-  if (game.state === 'playing' && game.hunterRespawning) {
-    const left = Math.ceil(game.hunter.respawnAt - game.playT);
+  const banished = game.hunters.filter((hn) => game.respawning(hn));
+  if (game.state === 'playing' && banished.length > 0) {
+    const soonest = Math.min(...banished.map((hn) => hn.respawnAt));
+    const left = Math.ceil(soonest - game.playT);
+    const label =
+      banished.length > 1 ? `${banished.length} HUNTERS LOST TO THE VOID` : 'HUNTER LOST TO THE VOID';
     ctx.fillStyle = `rgba(200,130,255,${0.7 + 0.3 * Math.sin(game.time * 5)})`;
-    ctx.fillText(`HUNTER LOST TO THE VOID — RETURNS IN ${left}`, w / 2, 16);
+    ctx.fillText(`${label} — NEXT RETURNS IN ${left}`, w / 2, 16);
   } else if (
     game.state === 'playing' &&
     game.interceptAt >= 0 &&
@@ -139,10 +143,11 @@ function drawMinimap(ctx: CanvasRenderingContext2D, game: Game, w: number): void
   // Gate
   ctx.fillStyle = game.gate.active ? '#5dff8a' : 'rgba(140,150,160,0.7)';
   ctx.fillRect(mx + game.gate.x * sx - 2, my + game.gate.y * sy - 2, 4, 4);
-  // Hunter — hidden while a black hole has it
-  if (!game.hunterRespawning) {
-    const hp = game.hunter.body.translation();
-    ctx.fillStyle = '#ff5050';
+  // Hunters — each hidden while a black hole has it
+  ctx.fillStyle = '#ff5050';
+  for (const hunter of game.hunters) {
+    if (game.respawning(hunter)) continue;
+    const hp = hunter.body.translation();
     ctx.beginPath();
     ctx.arc(mx + hp.x * sx, my + hp.y * sy, 3, 0, Math.PI * 2);
     ctx.fill();
@@ -197,13 +202,16 @@ function drawHunterArrow(
   w: number,
   h: number,
 ): void {
-  if (game.state !== 'playing' || game.hunterRespawning) return;
-  const hp = game.hunter.body.translation();
+  if (game.state !== 'playing') return;
   const pp = game.player.body.translation();
-  const dist = Math.hypot(hp.x - pp.x, hp.y - pp.y);
-  // Pulse faster as the hunter closes in
-  const rate = 2 + 2500 / Math.max(dist, 120);
-  drawEdgeArrow(ctx, game, w, h, hp.x, hp.y, '#ff5050', rate);
+  for (const hunter of game.hunters) {
+    if (game.respawning(hunter)) continue;
+    const hp = hunter.body.translation();
+    const dist = Math.hypot(hp.x - pp.x, hp.y - pp.y);
+    // Pulse faster as the hunter closes in
+    const rate = 2 + 2500 / Math.max(dist, 120);
+    drawEdgeArrow(ctx, game, w, h, hp.x, hp.y, '#ff5050', rate);
+  }
 }
 
 function drawGateArrow(

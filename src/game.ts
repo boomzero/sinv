@@ -82,7 +82,12 @@ export interface ScoreBreakdown {
 }
 
 const PLAYER_SPAWN = { x: 350, y: MAP_H - 350 };
-const HUNTER_SPAWN = { x: MAP_W - 350, y: 350 };
+// Hunters spawn (and re-materialize after a black hole) at these corners, in
+// order. Both are kept clear of the player's start and the exit gate.
+const HUNTER_SPAWNS = [
+  { x: MAP_W - 350, y: 350 }, // top-right
+  { x: 350, y: 350 }, // top-left
+];
 const GATE_POS = { x: MAP_W - 320, y: MAP_H - 320 };
 
 export class Game {
@@ -98,8 +103,8 @@ export class Game {
   interceptAt = -1;
   /** playT when lunges first unlocked this run (−1 = not yet). */
   lungeUnlockedAt = -1;
-  /** True while the player is inside CLOSE_CALL_DIST of the hunter. */
-  closeCallActive = false;
+  /** The specific hunter being threaded right now (null = no active close call). */
+  closeCallHunter: Hunter | null = null;
   closeCallCooldown = 0;
   /** playT of the most recent successful close call (−1 = none yet). */
   lastCloseCallAt = -1;
@@ -118,9 +123,9 @@ export class Game {
     return this.difficulty.gemCount;
   }
 
-  /** True while a black hole has swallowed the hunter and it hasn't re-materialized yet. */
-  get hunterRespawning() {
-    return this.hunter.respawnAt > this.playT;
+  /** True while a black hole has swallowed this hunter and it hasn't re-materialized yet. */
+  respawning(h: Hunter): boolean {
+    return h.respawnAt > this.playT;
   }
   time = 0; // wall time since boot (for animation)
   playT = 0; // time since this run started
@@ -134,7 +139,7 @@ export class Game {
   physics!: PhysicsContext;
   private eventQueue!: EventQueue;
   player!: Player;
-  hunter!: Hunter;
+  hunters: Hunter[] = [];
   asteroids: Asteroid[] = [];
   pickups: Pickup[] = [];
   gate!: Gate;
@@ -165,7 +170,7 @@ export class Game {
     this.orbsCollected = 0;
     this.interceptAt = -1;
     this.lungeUnlockedAt = -1;
-    this.closeCallActive = false;
+    this.closeCallHunter = null;
     this.closeCallCooldown = 0;
     this.lastCloseCallAt = -1;
     this.lastCloseCallBonus = 0;
@@ -175,7 +180,11 @@ export class Game {
     createWalls(this.physics);
     this.player = createPlayer(this.physics, PLAYER_SPAWN.x, PLAYER_SPAWN.y);
     this.player.body.setRotation(-Math.PI / 4, true); // face into the map
-    this.hunter = createHunter(this.physics, HUNTER_SPAWN.x, HUNTER_SPAWN.y);
+    this.hunters = [];
+    for (let i = 0; i < this.difficulty.hunterCount; i++) {
+      const s = HUNTER_SPAWNS[i % HUNTER_SPAWNS.length];
+      this.hunters.push(createHunter(this.physics, s.x, s.y));
+    }
     this.gate = createGate(this.physics, GATE_POS.x, GATE_POS.y);
     this.populate(rng);
     this.camera.snapTo(PLAYER_SPAWN.x, PLAYER_SPAWN.y);
@@ -279,7 +288,10 @@ export class Game {
 
     for (let i = 0; i < this.difficulty.asteroidCount; i++) {
       const p = sample(450);
-      if (Math.hypot(p.x - HUNTER_SPAWN.x, p.y - HUNTER_SPAWN.y) < 250) continue;
+      if (
+        HUNTER_SPAWNS.some((s) => Math.hypot(p.x - s.x, p.y - s.y) < 250)
+      )
+        continue;
       // Mostly small rocks, a few big ones
       const radius = 20 + Math.pow(rng(), 1.8) * 50;
       this.asteroids.push(createAsteroid(this.physics, rng, p.x, p.y, radius));
@@ -335,40 +347,44 @@ export class Game {
       }
       this.playerFrame = updatePlayer(this.player, this.input, dt, aimAngle);
       this.emitEngineTrail();
-      if (this.hunterRespawning) {
-        // Swallowed by a core: sit out the timer, parked and inert at spawn.
-        this.hunter.body.resetForces(true);
-        this.hunter.telegraph = 0;
-      } else {
-        if (!this.hunter.collider.isEnabled()) {
+      const lungesUnlocked =
+        this.gemsCollected >= this.gemCount * HUNTER_LUNGE_GEM_FRACTION;
+      if (lungesUnlocked && this.lungeUnlockedAt < 0) {
+        this.lungeUnlockedAt = this.playT;
+      }
+      for (const hunter of this.hunters) {
+        if (this.respawning(hunter)) {
+          // Swallowed by a core: sit out the timer, parked and inert at spawn.
+          hunter.body.resetForces(true);
+          hunter.telegraph = 0;
+          continue;
+        }
+        if (!hunter.collider.isEnabled()) {
           // Timer elapsed — re-materialize at the spawn corner.
-          this.hunter.collider.setEnabled(true);
-          this.hunter.lungeTimer = HUNTER_LUNGE_PERIOD;
-          const hp = this.hunter.body.translation();
+          hunter.collider.setEnabled(true);
+          hunter.lungeTimer = HUNTER_LUNGE_PERIOD;
+          const hp = hunter.body.translation();
           this.particles.burst(hp.x, hp.y, 30, 260, 0.9, 4, '#ff5050');
         }
         updateHunter(
-          this.hunter,
+          hunter,
           this.player,
           this.physics,
           this.playT,
           this.orbsCollected,
-          this.gemsCollected >= this.gemCount * HUNTER_LUNGE_GEM_FRACTION,
+          lungesUnlocked,
           this.difficulty,
           this.wells,
           dt,
         );
-        if (this.hunter.lureCommitUntil > this.playT && this.interceptAt < 0) {
+        if (hunter.lureCommitUntil > this.playT && this.interceptAt < 0) {
           this.interceptAt = this.playT;
-        }
-        if (this.gemsCollected >= this.gemCount * HUNTER_LUNGE_GEM_FRACTION && this.lungeUnlockedAt < 0) {
-          this.lungeUnlockedAt = this.playT;
         }
       }
     } else {
       // Ships idle: clear any leftover forces so they just drift
       this.player.body.resetForces(true);
-      this.hunter.body.resetForces(true);
+      for (const hunter of this.hunters) hunter.body.resetForces(true);
     }
 
     this.applyGravityWells();
@@ -391,29 +407,41 @@ export class Game {
     this.input.endFrame();
   }
 
+  /** A hunter counts as a close-call threat only when on the map and active. */
+  private threatening(h: Hunter): boolean {
+    return !this.respawning(h) && h.stunnedUntil <= this.playT;
+  }
+
   private tickCloseCall(dt: number): void {
-    if (this.state !== 'playing' || !this.player.alive || this.hunterRespawning) {
-      this.closeCallActive = false;
+    if (this.state !== 'playing' || !this.player.alive) {
+      this.closeCallHunter = null;
       return;
     }
     this.closeCallCooldown = Math.max(0, this.closeCallCooldown - dt);
     const pp = this.player.body.translation();
-    const hp = this.hunter.body.translation();
-    const dist = Math.hypot(pp.x - hp.x, pp.y - hp.y);
+    const distTo = (h: Hunter) => {
+      const hp = h.body.translation();
+      return Math.hypot(pp.x - hp.x, pp.y - hp.y);
+    };
 
-    if (!this.closeCallActive) {
-      // Only start a close call when the hunter is active and not stunned
-      if (
-        dist < CLOSE_CALL_DIST &&
-        this.closeCallCooldown <= 0 &&
-        this.hunter.stunnedUntil <= this.playT
-      ) {
-        this.closeCallActive = true;
+    if (!this.closeCallHunter) {
+      if (this.closeCallCooldown > 0) return;
+      // Arm against the nearest active hunter we've drawn dangerously close to.
+      for (const hunter of this.hunters) {
+        if (this.threatening(hunter) && distTo(hunter) < CLOSE_CALL_DIST) {
+          this.closeCallHunter = hunter;
+          break;
+        }
       }
-    } else if (this.hunter.stunnedUntil > this.playT) {
-      // Shield hit while the close call was active — not a skill pass, cancel it.
-      this.closeCallActive = false;
-    } else if (dist > CLOSE_CALL_ESCAPE_DIST) {
+      return;
+    }
+
+    const hunter = this.closeCallHunter;
+    if (!this.threatening(hunter)) {
+      // The hunter we were threading got stunned or banished mid-pass — that's
+      // not a clean escape, so cancel without awarding.
+      this.closeCallHunter = null;
+    } else if (distTo(hunter) > CLOSE_CALL_ESCAPE_DIST) {
       const bonus = Math.round(
         CLOSE_CALL_SCORE * this.player.mult * this.difficulty.scoreMultiplier,
       );
@@ -421,7 +449,7 @@ export class Game {
       this.totalCloseCallBonus += bonus;
       this.lastCloseCallAt = this.playT;
       this.lastCloseCallBonus = bonus;
-      this.closeCallActive = false;
+      this.closeCallHunter = null;
       this.closeCallCooldown = CLOSE_CALL_COOLDOWN;
       const p = this.player.body.translation();
       this.particles.burst(p.x, p.y, 10, 220, 0.45, 3, '#ff9944');
@@ -430,15 +458,22 @@ export class Game {
 
   private applyGravityWells(): void {
     for (const a of this.asteroids) a.body.resetForces(true);
-    const huntable = this.state === 'playing' && !this.hunterRespawning;
+    const playing = this.state === 'playing';
+    const hunterBodies = new Set(
+      this.hunters
+        .filter((h) => playing && !this.respawning(h))
+        .map((h) => h.body),
+    );
     const bodies = [
       ...this.asteroids.map((a) => a.body),
-      ...(this.state === 'playing' ? [this.player.body] : []),
-      ...(huntable ? [this.hunter.body] : []),
+      ...(playing ? [this.player.body] : []),
+      ...hunterBodies,
     ];
     for (const body of bodies) {
       const p = body.translation();
-      const factor = body === this.hunter.body ? WELL_HUNTER_FACTOR : 1;
+      const isHunter = hunterBodies.has(body);
+      const isShip = body === this.player.body || isHunter;
+      const factor = isHunter ? WELL_HUNTER_FACTOR : 1;
       for (const well of this.wells) {
         const dx = well.x - p.x;
         const dy = well.y - p.y;
@@ -456,10 +491,7 @@ export class Game {
           // radial push. (dy, -dx)/dist is the unit tangent; grazing it along
           // the spin does net positive work, so you leave faster — a slingshot,
           // and the rendered swirl spins this same way so the cue is honest.
-          if (
-            well.polarity === -1 &&
-            (body === this.player.body || body === this.hunter.body)
-          ) {
+          if (well.polarity === -1 && isShip) {
             const tanMag =
               (WHITE_HOLE_SWIRL * Math.abs(accel) * body.mass() * WHITE_HOLE_SWIRL_DIR) /
               dist;
@@ -469,11 +501,7 @@ export class Game {
           // Inside a black hole's bait band, ships hit heavy drag that bleeds
           // the speed keeping them clear of the core — coast and you spiral in,
           // so the slingshot pass demands constant boost to hold velocity.
-          if (
-            well.polarity === 1 &&
-            dist < WELL_BAIT_RADIUS &&
-            (body === this.player.body || body === this.hunter.body)
-          ) {
+          if (well.polarity === 1 && dist < WELL_BAIT_RADIUS && isShip) {
             const v = body.linvel();
             const k = WELL_BAIT_DRAG * body.mass();
             body.addForce({ x: -v.x * k, y: -v.y * k }, true);
@@ -499,28 +527,31 @@ export class Game {
         }
       }
     }
-    // Despite resisting the pull, the hunter can still get dragged into a core
+    // Despite resisting the pull, a hunter can still get dragged into a core
     // mid-chase. When that happens the singularity eats it: it vanishes for a
     // good while, handing the player a real breather, then re-materializes back
-    // at its spawn corner.
-    if (this.state === 'playing' && !this.hunterRespawning) {
-      const hp = this.hunter.body.translation();
-      for (const well of this.wells) {
-        if (well.polarity !== 1) continue;
-        if (Math.hypot(well.x - hp.x, well.y - hp.y) < WELL_CORE_RADIUS) {
-          this.particles.burst(hp.x, hp.y, 34, 280, 0.9, 5, '#c873ff');
-          this.particles.burst(hp.x, hp.y, 20, 200, 0.7, 4, '#ff5050');
-          this.hunter.respawnAt = this.playT + HUNTER_BLACKHOLE_RESPAWN;
-          this.hunter.stunnedUntil = this.hunter.respawnAt;
-          // Pull it out of the world: no collisions, no forces, not drawn.
-          this.hunter.collider.setEnabled(false);
-          this.hunter.body.setLinvel({ x: 0, y: 0 }, true);
-          this.hunter.body.resetForces(true);
-          this.hunter.body.setTranslation(
-            { x: HUNTER_SPAWN.x, y: HUNTER_SPAWN.y },
-            true,
-          );
-          break;
+    // at its own spawn corner.
+    if (this.state === 'playing') {
+      for (const hunter of this.hunters) {
+        if (this.respawning(hunter)) continue;
+        const hp = hunter.body.translation();
+        for (const well of this.wells) {
+          if (well.polarity !== 1) continue;
+          if (Math.hypot(well.x - hp.x, well.y - hp.y) < WELL_CORE_RADIUS) {
+            this.particles.burst(hp.x, hp.y, 34, 280, 0.9, 5, '#c873ff');
+            this.particles.burst(hp.x, hp.y, 20, 200, 0.7, 4, '#ff5050');
+            hunter.respawnAt = this.playT + HUNTER_BLACKHOLE_RESPAWN;
+            hunter.stunnedUntil = hunter.respawnAt;
+            // Pull it out of the world: no collisions, no forces, not drawn.
+            hunter.collider.setEnabled(false);
+            hunter.body.setLinvel({ x: 0, y: 0 }, true);
+            hunter.body.resetForces(true);
+            hunter.body.setTranslation(
+              { x: hunter.spawnX, y: hunter.spawnY },
+              true,
+            );
+            break;
+          }
         }
       }
     }
@@ -582,7 +613,7 @@ export class Game {
     if (a.kind === 'player') {
       if (b.kind === 'pickup') this.consumePickup(b);
       else if (b.kind === 'gate' && b.active) this.win();
-      else if (b.kind === 'hunter') this.resolveHunterTouch();
+      else if (b.kind === 'hunter') this.resolveHunterTouch(b);
       else if (b.kind === 'asteroid') this.asteroidImpact(b);
     } else if (a.kind === 'hunter' && b.kind === 'asteroid') {
       // The hunter bulldozes: any rock it touches gets launched along its
@@ -671,24 +702,26 @@ export class Game {
     }
   }
 
-  private resolveHunterTouch(): void {
+  private resolveHunterTouch(hunter: Hunter): void {
+    // A stunned hunter is harmless — ignore the touch entirely so it can't burn
+    // the player's shield or end the run during its grace period.
+    if (hunter.stunnedUntil > this.playT) return;
     if (this.player.shield) {
       this.player.shield = false;
-      this.hunter.stunnedUntil = this.playT + HUNTER_STUN;
-      const hp = this.hunter.body.translation();
+      hunter.stunnedUntil = this.playT + HUNTER_STUN;
+      const hp = hunter.body.translation();
       const pp = this.player.body.translation();
       const dx = hp.x - pp.x;
       const dy = hp.y - pp.y;
       const d = Math.max(Math.hypot(dx, dy), 1);
-      const m = this.hunter.body.mass();
-      this.hunter.body.applyImpulse(
+      const m = hunter.body.mass();
+      hunter.body.applyImpulse(
         { x: (dx / d) * 700 * m, y: (dy / d) * 700 * m },
         true,
       );
       this.camera.addShake(14);
       this.particles.burst(pp.x, pp.y, 26, 320, 0.7, 4, '#6699ff');
-    } else if (this.playT >= this.hunter.stunnedUntil) {
-      // A stunned hunter is harmless — grace period after a shield break
+    } else {
       this.lose('caught');
     }
   }

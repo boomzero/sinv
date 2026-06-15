@@ -12,6 +12,8 @@ export interface Difficulty {
   gemCount: number;
   /** Multiplier applied to all score gains. */
   scoreMultiplier: number;
+  /** How many hunters stalk the map. */
+  hunterCount: number;
   blurb: string;
 }
 
@@ -23,6 +25,7 @@ export const DIFFICULTIES: Difficulty[] = [
     asteroidCount: 24,
     gemCount: 16,
     scoreMultiplier: 0.7,
+    hunterCount: 1,
     blurb: 'slower hunter · long warm-up · fewer gems · sparse field · 0.7× score',
   },
   {
@@ -32,6 +35,7 @@ export const DIFFICULTIES: Difficulty[] = [
     asteroidCount: ASTEROID_COUNT,
     gemCount: GEM_COUNT,
     scoreMultiplier: 1,
+    hunterCount: 1,
     blurb: 'the standard hunt · 1× score',
   },
   {
@@ -41,7 +45,18 @@ export const DIFFICULTIES: Difficulty[] = [
     asteroidCount: 46,
     gemCount: GEM_COUNT,
     scoreMultiplier: 1.5,
+    hunterCount: 1,
     blurb: 'fast hunter · short warm-up · dense field · 1.5× score',
+  },
+  {
+    name: 'EXTREME',
+    hunterSpeedMult: 1.3,
+    hunterWarmup: 3,
+    asteroidCount: 52,
+    gemCount: GEM_COUNT,
+    scoreMultiplier: 2.2,
+    hunterCount: 2,
+    blurb: 'TWO hunters · fast · short warm-up · dense field · 2.2× score',
   },
 ];
 

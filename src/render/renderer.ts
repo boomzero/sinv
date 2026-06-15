@@ -1,5 +1,5 @@
 import type { Game } from '../game';
-import type { Asteroid, Pickup, GravityWell, PickupType } from '../entities/types';
+import type { Asteroid, Pickup, GravityWell, PickupType, Hunter } from '../entities/types';
 import { drawStarfield } from './starfield';
 import {
   MAP_W,
@@ -120,7 +120,7 @@ export function drawScene(
   }
   for (const a of game.asteroids) drawAsteroid(ctx, a);
   game.particles.draw(ctx);
-  drawHunter(ctx, game);
+  for (const hunter of game.hunters) drawHunter(ctx, game, hunter);
   drawPlayer(ctx, game);
 
   if (game.debugDraw) drawDebugWorld(ctx, game);
@@ -365,12 +365,11 @@ function drawPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.restore();
 }
 
-function drawHunter(ctx: CanvasRenderingContext2D, game: Game): void {
-  const hunter = game.hunter;
+function drawHunter(ctx: CanvasRenderingContext2D, game: Game, hunter: Hunter): void {
   const pos = hunter.body.translation();
   // Swallowed by a black hole: the ship is gone. In the last second before it
   // returns, a faint portal forms at the spawn corner where it'll re-emerge.
-  if (game.hunterRespawning) {
+  if (game.respawning(hunter)) {
     const left = hunter.respawnAt - game.playT;
     if (left < 1.2) {
       const t = 1 - left / 1.2;
@@ -572,9 +571,10 @@ function drawDebugWorld(ctx: CanvasRenderingContext2D, game: Game): void {
     label(ctx, pp.x, pp.y + PLAYER_RADIUS + 12, `v=${Math.hypot(pv.x, pv.y) | 0}`, 'rgba(0,255,200,0.8)');
   }
 
-  if (!game.hunterRespawning) {
-    const hp = game.hunter.body.translation();
-    const hv = game.hunter.body.linvel();
+  for (const hunter of game.hunters) {
+    if (game.respawning(hunter)) continue;
+    const hp = hunter.body.translation();
+    const hv = hunter.body.linvel();
     const spd = Math.hypot(hv.x, hv.y);
     if (spd > 5) {
       arrow(ctx, hp.x, hp.y, hv.x * 0.2, hv.y * 0.2, 'rgba(255,80,80,0.7)');
@@ -592,7 +592,7 @@ function drawDebugWorld(ctx: CanvasRenderingContext2D, game: Game): void {
       ctx.restore();
     }
     label(ctx, hp.x, hp.y + HUNTER_RADIUS + 12, `v=${spd | 0}`, 'rgba(255,80,80,0.8)');
-    const lt = game.hunter.lungeTimer;
+    const lt = hunter.lungeTimer;
     label(ctx, hp.x, hp.y + HUNTER_RADIUS + 24, `lunge=${lt.toFixed(1)}/${HUNTER_LUNGE_PERIOD}`, 'rgba(255,80,80,0.6)');
   }
 
