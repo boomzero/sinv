@@ -33,6 +33,8 @@ export interface Hunter {
   /** Corner this hunter spawns and re-materializes at. */
   spawnX: number;
   spawnY: number;
+  /** 0..1 offset into the lunge cycle, so multiple hunters don't lunge in sync. */
+  lungePhase: number;
 }
 
 export interface Asteroid {

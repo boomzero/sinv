@@ -47,6 +47,7 @@ export function createHunter(ctx: PhysicsContext, x: number, y: number): Hunter 
     lureStrength: 0,
     spawnX: x,
     spawnY: y,
+    lungePhase: 0,
   };
   ctx.register(collider, hunter);
   return hunter;

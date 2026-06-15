@@ -181,9 +181,14 @@ export class Game {
     this.player = createPlayer(this.physics, PLAYER_SPAWN.x, PLAYER_SPAWN.y);
     this.player.body.setRotation(-Math.PI / 4, true); // face into the map
     this.hunters = [];
-    for (let i = 0; i < this.difficulty.hunterCount; i++) {
+    const count = this.difficulty.hunterCount;
+    for (let i = 0; i < count; i++) {
       const s = HUNTER_SPAWNS[i % HUNTER_SPAWNS.length];
-      this.hunters.push(createHunter(this.physics, s.x, s.y));
+      const hunter = createHunter(this.physics, s.x, s.y);
+      // Spread the hunters across the lunge cycle so they never fire together.
+      hunter.lungePhase = i / count;
+      hunter.lungeTimer = HUNTER_LUNGE_PERIOD * (1 - hunter.lungePhase);
+      this.hunters.push(hunter);
     }
     this.gate = createGate(this.physics, GATE_POS.x, GATE_POS.y);
     this.populate(rng);
@@ -360,9 +365,10 @@ export class Game {
           continue;
         }
         if (!hunter.collider.isEnabled()) {
-          // Timer elapsed — re-materialize at the spawn corner.
+          // Timer elapsed — re-materialize at the spawn corner, keeping its
+          // lunge offset so it stays out of sync with the other hunter.
           hunter.collider.setEnabled(true);
-          hunter.lungeTimer = HUNTER_LUNGE_PERIOD;
+          hunter.lungeTimer = HUNTER_LUNGE_PERIOD * (1 - hunter.lungePhase);
           const hp = hunter.body.translation();
           this.particles.burst(hp.x, hp.y, 30, 260, 0.9, 4, '#ff5050');
         }
