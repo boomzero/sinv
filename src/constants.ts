@@ -83,8 +83,12 @@ export const WHITE_HOLE_SWIRL_DIR = 1; // +1 = CCW (math) / CW on screen; render
 export const WELL_PULL = 700000;
 export const WELL_FALLOFF = 1.4;
 export const WELL_MIN_DIST = 45;
-// The hunter fights the pull far better than loose rocks — it can't be trapped
+// The hunter fights a black hole's pull far better than loose rocks — it can't
+// be trapped (only lured). White holes, though, repel it HARD: this multiplier
+// makes a white hole the player's chase-breaker — dive through and the pursuer
+// gets shoved back and falls behind while you slingshot clear.
 export const WELL_HUNTER_FACTOR = 0.35;
+export const WHITE_HOLE_HUNTER_REPEL = 2.2;
 // Anything drifting into the core gets consumed; asteroids respawn elsewhere
 export const WELL_CORE_RADIUS = 70;
 // Ring around the core where the prey can bait the hunter into following it in.

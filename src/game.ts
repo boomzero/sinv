@@ -43,6 +43,7 @@ import {
   WELL_FALLOFF,
   WELL_MIN_DIST,
   WELL_HUNTER_FACTOR,
+  WHITE_HOLE_HUNTER_REPEL,
   WELL_CORE_RADIUS,
   WELL_BAIT_RADIUS,
   WELL_BAIT_DRAG,
@@ -478,13 +479,21 @@ export class Game {
     for (const body of bodies) {
       const p = body.translation();
       const isHunter = hunterBodies.has(body);
-      const isShip = body === this.player.body || isHunter;
-      const factor = isHunter ? WELL_HUNTER_FACTOR : 1;
+      const isPlayer = body === this.player.body;
+      const isShip = isPlayer || isHunter;
       for (const well of this.wells) {
         const dx = well.x - p.x;
         const dy = well.y - p.y;
         const dist = Math.hypot(dx, dy);
         if (dist < well.radius && dist > 1) {
+          // Hunters resist a black hole's pull (so they can't be trapped, only
+          // lured) but get SHOVED hard by white holes — a white hole is the
+          // player's chase-breaker: dive through and the pursuer bounces off.
+          const factor = !isHunter
+            ? 1
+            : well.polarity === 1
+              ? WELL_HUNTER_FACTOR
+              : WHITE_HOLE_HUNTER_REPEL;
           const accel =
             (WELL_PULL / Math.pow(Math.max(dist, WELL_MIN_DIST), WELL_FALLOFF)) *
             factor *
@@ -493,11 +502,11 @@ export class Game {
           const f = (accel * body.mass()) / dist;
           body.addForce({ x: dx * f, y: dy * f }, true);
 
-          // White-hole vortex (ships only): a tangential whirl on top of the
-          // radial push. (dy, -dx)/dist is the unit tangent; grazing it along
-          // the spin does net positive work, so you leave faster — a slingshot,
-          // and the rendered swirl spins this same way so the cue is honest.
-          if (well.polarity === -1 && isShip) {
+          // White-hole vortex slingshot — PLAYER ONLY. A tangential whirl on
+          // top of the radial push; grazing it along the spin does net positive
+          // work, so you leave faster. The hunter gets no boost from it, only
+          // the hard radial bounce above, so a white hole pass opens distance.
+          if (well.polarity === -1 && isPlayer) {
             const tanMag =
               (WHITE_HOLE_SWIRL * Math.abs(accel) * body.mass() * WHITE_HOLE_SWIRL_DIR) /
               dist;

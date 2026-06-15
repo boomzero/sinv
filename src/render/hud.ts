@@ -276,7 +276,7 @@ export function drawOverlay(
     ctx.font = `13px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.5)';
     ctx.fillText(
-      'asteroids chip your hull  ·  black hole cores devour ships  ·  white holes shove you away',
+      'asteroids chip your hull  ·  black hole cores devour ships  ·  white holes slingshot you (and bounce the hunter off your tail)',
       w / 2,
       cy - 4,
     );
