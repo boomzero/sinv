@@ -612,23 +612,28 @@ function drawDebugWorld(ctx: CanvasRenderingContext2D, game: Game): void {
     }
   }
 
-  // Screen-space HUD box (reset transform to draw in CSS pixels)
+  // Screen-space HUD box (reset transform to draw in CSS pixels). Anchored to
+  // the left edge, vertically centered — clear of the score (top-left) and the
+  // hull/boost bars (bottom-left).
   ctx.save();
   const cam = game.camera;
+  const boxH = 88;
+  const x0 = 8;
+  const y0 = Math.round(game.viewH / 2 - boxH / 2);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(8, 8, 210, 88);
+  ctx.fillRect(x0, y0, 210, boxH);
   ctx.font = '12px monospace';
   ctx.fillStyle = '#0ff';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   const pp2 = game.player.body.translation();
   const pv2 = game.player.body.linvel();
-  ctx.fillText('DEBUG  (` to toggle)', 16, 14);
+  ctx.fillText('DEBUG  (` to toggle)', x0 + 8, y0 + 6);
   ctx.fillStyle = 'rgba(200,200,200,0.9)';
-  ctx.fillText(`pos  ${pp2.x | 0}, ${pp2.y | 0}`, 16, 30);
-  ctx.fillText(`vel  ${Math.hypot(pv2.x, pv2.y) | 0} u/s`, 16, 46);
-  ctx.fillText(`hull ${game.player.hull | 0}  boost ${game.player.boostFuel | 0}`, 16, 62);
-  ctx.fillText(`cam  ${cam.x | 0}, ${cam.y | 0}`, 16, 78);
+  ctx.fillText(`pos  ${pp2.x | 0}, ${pp2.y | 0}`, x0 + 8, y0 + 22);
+  ctx.fillText(`vel  ${Math.hypot(pv2.x, pv2.y) | 0} u/s`, x0 + 8, y0 + 38);
+  ctx.fillText(`hull ${game.player.hull | 0}  boost ${game.player.boostFuel | 0}`, x0 + 8, y0 + 54);
+  ctx.fillText(`cam  ${cam.x | 0}, ${cam.y | 0}`, x0 + 8, y0 + 70);
   ctx.restore();
 }
