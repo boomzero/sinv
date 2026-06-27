@@ -1,4 +1,4 @@
-import { HUNTER_WARMUP, ASTEROID_COUNT, GEM_COUNT } from './constants';
+import { HUNTER_WARMUP, ASTEROID_COUNT, GEM_COUNT, MAP_W, MAP_H } from './constants';
 
 export interface Difficulty {
   name: string;
@@ -14,6 +14,8 @@ export interface Difficulty {
   scoreMultiplier: number;
   /** How many hunters stalk the map. */
   hunterCount: number;
+  mapW: number;
+  mapH: number;
   blurb: string;
 }
 
@@ -26,6 +28,8 @@ export const DIFFICULTIES: Difficulty[] = [
     gemCount: 16,
     scoreMultiplier: 0.7,
     hunterCount: 1,
+    mapW: MAP_W,
+    mapH: MAP_H,
     blurb: 'slower hunter · long warm-up · fewer gems · sparse field · 0.7× score',
   },
   {
@@ -36,6 +40,8 @@ export const DIFFICULTIES: Difficulty[] = [
     gemCount: GEM_COUNT,
     scoreMultiplier: 1,
     hunterCount: 1,
+    mapW: MAP_W,
+    mapH: MAP_H,
     blurb: 'the standard hunt · 1× score',
   },
   {
@@ -46,6 +52,8 @@ export const DIFFICULTIES: Difficulty[] = [
     gemCount: GEM_COUNT,
     scoreMultiplier: 1.5,
     hunterCount: 1,
+    mapW: MAP_W,
+    mapH: MAP_H,
     blurb: 'fast hunter · short warm-up · dense field · 1.5× score',
   },
   {
@@ -56,7 +64,9 @@ export const DIFFICULTIES: Difficulty[] = [
     gemCount: GEM_COUNT,
     scoreMultiplier: 2.2,
     hunterCount: 2,
-    blurb: 'TWO hunters · fast · short warm-up · dense field · 2.2× score',
+    mapW: 5200,
+    mapH: 3900,
+    blurb: 'TWO hunters · huge map · fast · short warm-up · dense field · 2.2× score',
   },
 ];
 

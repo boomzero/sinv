@@ -1,6 +1,6 @@
 import RAPIER from '@dimforge/rapier2d-compat';
 import type { World, Collider } from '@dimforge/rapier2d-compat';
-import { MAP_W, MAP_H, WALL_T } from './constants';
+import { WALL_T } from './constants';
 import type { Entity } from './entities/types';
 
 // Collision group membership bits
@@ -51,13 +51,13 @@ export class PhysicsContext {
 }
 
 /** Four fixed cuboid colliders just outside the map rectangle. */
-export function createWalls(ctx: PhysicsContext): void {
+export function createWalls(ctx: PhysicsContext, mapW: number, mapH: number): void {
   const specs: Array<[number, number, number, number]> = [
     // [cx, cy, halfW, halfH]
-    [MAP_W / 2, -WALL_T / 2, MAP_W / 2 + WALL_T, WALL_T / 2],
-    [MAP_W / 2, MAP_H + WALL_T / 2, MAP_W / 2 + WALL_T, WALL_T / 2],
-    [-WALL_T / 2, MAP_H / 2, WALL_T / 2, MAP_H / 2 + WALL_T],
-    [MAP_W + WALL_T / 2, MAP_H / 2, WALL_T / 2, MAP_H / 2 + WALL_T],
+    [mapW / 2, -WALL_T / 2, mapW / 2 + WALL_T, WALL_T / 2],
+    [mapW / 2, mapH + WALL_T / 2, mapW / 2 + WALL_T, WALL_T / 2],
+    [-WALL_T / 2, mapH / 2, WALL_T / 2, mapH / 2 + WALL_T],
+    [mapW + WALL_T / 2, mapH / 2, WALL_T / 2, mapH / 2 + WALL_T],
   ];
   for (const [cx, cy, hw, hh] of specs) {
     const collider = ctx.world.createCollider(

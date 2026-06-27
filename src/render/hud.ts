@@ -1,5 +1,5 @@
 import type { Game } from '../game';
-import { MAP_W, MAP_H, HULL_MAX, BOOST_MAX } from '../constants';
+import { HULL_MAX, BOOST_MAX } from '../constants';
 import { DIFFICULTIES } from '../difficulty';
 
 const FONT = 'monospace';
@@ -116,11 +116,11 @@ function drawBar(
 
 function drawMinimap(ctx: CanvasRenderingContext2D, game: Game, w: number): void {
   const mw = 170;
-  const mh = (mw * MAP_H) / MAP_W;
+  const mh = (mw * game.mapH) / game.mapW;
   const mx = w - mw - 16;
   const my = 16;
-  const sx = mw / MAP_W;
-  const sy = mh / MAP_H;
+  const sx = mw / game.mapW;
+  const sy = mh / game.mapH;
 
   ctx.fillStyle = 'rgba(5,5,20,0.65)';
   ctx.fillRect(mx, my, mw, mh);

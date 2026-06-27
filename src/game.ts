@@ -23,8 +23,6 @@ import type {
   PickupType,
 } from './entities/types';
 import {
-  MAP_W,
-  MAP_H,
   GEM_SCORE,
   GEM_BONUS_MULT,
   ORB_COUNT,
@@ -82,14 +80,16 @@ export interface ScoreBreakdown {
   total: number;
 }
 
-const PLAYER_SPAWN = { x: 350, y: MAP_H - 350 };
-// Hunters spawn (and re-materialize after a black hole) at these corners, in
-// order. Both are kept clear of the player's start and the exit gate.
-const HUNTER_SPAWNS = [
-  { x: MAP_W - 350, y: 350 }, // top-right
-  { x: 350, y: 350 }, // top-left
-];
-const GATE_POS = { x: MAP_W - 320, y: MAP_H - 320 };
+function spawnPositions(mapW: number, mapH: number) {
+  return {
+    player: { x: 350, y: mapH - 350 },
+    hunters: [
+      { x: mapW - 350, y: 350 },
+      { x: 350, y: 350 },
+    ],
+    gate: { x: mapW - 320, y: mapH - 320 },
+  };
+}
 
 export class Game {
   readonly input = new Input();
@@ -112,6 +112,10 @@ export class Game {
   lastCloseCallBonus = 0;
   totalCloseCallBonus = 0;
   difficultyIndex = loadDifficultyIndex();
+  mapW = 0;
+  mapH = 0;
+  private playerSpawn = { x: 0, y: 0 };
+  private gatePos = { x: 0, y: 0 };
   viewW = 0;
   viewH = 0;
 
@@ -177,23 +181,28 @@ export class Game {
     this.lastCloseCallBonus = 0;
     this.totalCloseCallBonus = 0;
 
+    this.mapW = this.difficulty.mapW;
+    this.mapH = this.difficulty.mapH;
+    const spawns = spawnPositions(this.mapW, this.mapH);
+    this.playerSpawn = spawns.player;
+    this.gatePos = spawns.gate;
+
     const rng = mulberry32(seed);
-    createWalls(this.physics);
-    this.player = createPlayer(this.physics, PLAYER_SPAWN.x, PLAYER_SPAWN.y);
+    createWalls(this.physics, this.mapW, this.mapH);
+    this.player = createPlayer(this.physics, spawns.player.x, spawns.player.y);
     this.player.body.setRotation(-Math.PI / 4, true); // face into the map
     this.hunters = [];
     const count = this.difficulty.hunterCount;
     for (let i = 0; i < count; i++) {
-      const s = HUNTER_SPAWNS[i % HUNTER_SPAWNS.length];
+      const s = spawns.hunters[i % spawns.hunters.length];
       const hunter = createHunter(this.physics, s.x, s.y);
-      // Spread the hunters across the lunge cycle so they never fire together.
       hunter.lungePhase = i / count;
       hunter.lungeTimer = HUNTER_LUNGE_PERIOD * (1 - hunter.lungePhase);
       this.hunters.push(hunter);
     }
-    this.gate = createGate(this.physics, GATE_POS.x, GATE_POS.y);
+    this.gate = createGate(this.physics, spawns.gate.x, spawns.gate.y);
     this.populate(rng);
-    this.camera.snapTo(PLAYER_SPAWN.x, PLAYER_SPAWN.y);
+    this.camera.snapTo(spawns.player.x, spawns.player.y);
   }
 
   private populate(rng: RNG): void {
@@ -207,11 +216,11 @@ export class Game {
 
     const sample = (minFromSpawn: number): { x: number; y: number } => {
       for (let tries = 0; tries < 60; tries++) {
-        const x = range(rng, margin, MAP_W - margin);
-        const y = range(rng, margin, MAP_H - margin);
+        const x = range(rng, margin, this.mapW - margin);
+        const y = range(rng, margin, this.mapH - margin);
         if (
-          Math.hypot(x - PLAYER_SPAWN.x, y - PLAYER_SPAWN.y) >= minFromSpawn &&
-          Math.hypot(x - GATE_POS.x, y - GATE_POS.y) >= 200 &&
+          Math.hypot(x - this.playerSpawn.x, y - this.playerSpawn.y) >= minFromSpawn &&
+          Math.hypot(x - this.gatePos.x, y - this.gatePos.y) >= 200 &&
           // Keep random spawns out of gravity fields: white holes push
           // anything placed inside out of reach, and black wells would
           // hand out free deep-field gems next to the deliberate bonus
@@ -223,16 +232,16 @@ export class Game {
           return { x, y };
         }
       }
-      return { x: MAP_W / 2, y: MAP_H / 2 };
+      return { x: this.mapW / 2, y: this.mapH / 2 };
     };
 
     // Gravity wells, spaced out and away from spawn/gate
     for (let tries = 0; this.wells.length < WELL_COUNT && tries < 300; tries++) {
-      const x = range(rng, 700, MAP_W - 700);
-      const y = range(rng, 600, MAP_H - 600);
+      const x = range(rng, 700, this.mapW - 700);
+      const y = range(rng, 600, this.mapH - 600);
       if (
-        Math.hypot(x - PLAYER_SPAWN.x, y - PLAYER_SPAWN.y) >= 900 &&
-        Math.hypot(x - GATE_POS.x, y - GATE_POS.y) >= 900 &&
+        Math.hypot(x - this.playerSpawn.x, y - this.playerSpawn.y) >= 900 &&
+        Math.hypot(x - this.gatePos.x, y - this.gatePos.y) >= 900 &&
         farFrom(x, y, this.wells, 1100)
       ) {
         this.wells.push({ x, y, radius: WELL_RADIUS, polarity: 1 });
@@ -242,11 +251,11 @@ export class Game {
     // White holes: repulsors wedged between the black wells
     const whiteHoles: GravityWell[] = [];
     for (let tries = 0; whiteHoles.length < WHITE_HOLE_COUNT && tries < 300; tries++) {
-      const x = range(rng, 600, MAP_W - 600);
-      const y = range(rng, 500, MAP_H - 500);
+      const x = range(rng, 600, this.mapW - 600);
+      const y = range(rng, 500, this.mapH - 500);
       if (
-        Math.hypot(x - PLAYER_SPAWN.x, y - PLAYER_SPAWN.y) >= 800 &&
-        Math.hypot(x - GATE_POS.x, y - GATE_POS.y) >= 700 &&
+        Math.hypot(x - this.playerSpawn.x, y - this.playerSpawn.y) >= 800 &&
+        Math.hypot(x - this.gatePos.x, y - this.gatePos.y) >= 700 &&
         farFrom(x, y, this.wells, 1000) &&
         farFrom(x, y, whiteHoles, 1000)
       ) {
@@ -295,7 +304,7 @@ export class Game {
     for (let i = 0; i < this.difficulty.asteroidCount; i++) {
       const p = sample(450);
       if (
-        HUNTER_SPAWNS.some((s) => Math.hypot(p.x - s.x, p.y - s.y) < 250)
+        this.hunters.some((h) => Math.hypot(p.x - h.spawnX, p.y - h.spawnY) < 250)
       )
         continue;
       // Mostly small rocks, a few big ones
@@ -577,11 +586,11 @@ export class Game {
         if (Math.hypot(well.x - p.x, well.y - p.y) >= WELL_CORE_RADIUS) continue;
         this.particles.burst(p.x, p.y, 12, 180, 0.6, 4, '#c873ff');
         const ppos = this.player.body.translation();
-        let x = MAP_W / 2;
-        let y = MAP_H / 2;
+        let x = this.mapW / 2;
+        let y = this.mapH / 2;
         for (let tries = 0; tries < 40; tries++) {
-          const cx = 180 + Math.random() * (MAP_W - 360);
-          const cy = 180 + Math.random() * (MAP_H - 360);
+          const cx = 180 + Math.random() * (this.mapW - 360);
+          const cy = 180 + Math.random() * (this.mapH - 360);
           if (
             Math.hypot(cx - ppos.x, cy - ppos.y) > 600 &&
             this.wells.every((w) => Math.hypot(cx - w.x, cy - w.y) > WELL_RADIUS)

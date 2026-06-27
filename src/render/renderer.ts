@@ -2,8 +2,6 @@ import type { Game } from '../game';
 import type { Asteroid, Pickup, GravityWell, PickupType, Hunter } from '../entities/types';
 import { drawStarfield } from './starfield';
 import {
-  MAP_W,
-  MAP_H,
   PLAYER_RADIUS,
   HUNTER_RADIUS,
   WELL_CORE_RADIUS,
@@ -112,7 +110,7 @@ export function drawScene(
   ctx.save();
   game.camera.apply(ctx, w, h);
 
-  drawBounds(ctx, game.time);
+  drawBounds(ctx, game.time, game.mapW, game.mapH);
   for (const well of game.wells) drawWell(ctx, well, game.time, game.debugDraw);
   drawGate(ctx, game);
   for (const p of game.pickups) {
@@ -128,13 +126,13 @@ export function drawScene(
   ctx.restore();
 }
 
-function drawBounds(ctx: CanvasRenderingContext2D, time: number): void {
+function drawBounds(ctx: CanvasRenderingContext2D, time: number, mapW: number, mapH: number): void {
   ctx.save();
   ctx.strokeStyle = `rgba(120,80,255,${0.5 + 0.15 * Math.sin(time * 2)})`;
   ctx.lineWidth = 3;
   ctx.shadowColor = '#7850ff';
   ctx.shadowBlur = 18;
-  ctx.strokeRect(0, 0, MAP_W, MAP_H);
+  ctx.strokeRect(0, 0, mapW, mapH);
   ctx.restore();
 }
 
