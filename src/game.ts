@@ -68,6 +68,10 @@ import {
   CLOSE_CALL_COOLDOWN,
 } from './constants';
 
+// Hidden cheat code: type these letters during a run (edge://surf style) to
+// toggle test mode — infinite boost and asteroid invulnerability. Undocumented.
+const CHEAT_CODE = 'iddqd';
+
 export type GameState = 'menu' | 'playing' | 'paused' | 'gameover' | 'win';
 export type LossReason = 'caught' | 'destroyed';
 
@@ -100,6 +104,10 @@ export class Game {
   lossReason: LossReason = 'caught';
   mouseSteer = localStorage.getItem('sinv-mouse') === '1';
   debugDraw = false;
+  /** Hidden cheat toggle: infinite boost + asteroid invulnerability (hunter stays lethal). */
+  cheats = false;
+  /** Sticky for the run: once cheats touch a run, its score never saves — even if toggled back off. */
+  cheatsUsed = false;
   /** playT when the first BHAS override intercept was triggered this run (−1 = not yet). */
   interceptAt = -1;
   /** playT when lunges first unlocked this run (−1 = not yet). */
@@ -169,6 +177,9 @@ export class Game {
     this.wells = [];
     this.playT = 0;
     this.score = 0;
+    // A fresh run starts clean: cheats off and the run's score-saving untainted.
+    this.cheats = false;
+    this.cheatsUsed = false;
     this.isNewHighScore = false;
     this.winBreakdown = null;
     this.gemsCollected = 0;
@@ -321,6 +332,11 @@ export class Game {
       localStorage.setItem('sinv-mouse', this.mouseSteer ? '1' : '0');
     }
     if (this.input.justPressed('Backquote')) this.debugDraw = !this.debugDraw;
+    if (this.input.consumeTyped(CHEAT_CODE)) {
+      this.cheats = !this.cheats;
+      // Touching a run with cheats permanently bars its score from saving.
+      if (this.cheats) this.cheatsUsed = true;
+    }
     if (this.input.justPressed('KeyR') && this.state !== 'menu') {
       this.reset((Math.random() * 2 ** 31) | 0);
       this.state = 'playing';
@@ -360,7 +376,7 @@ export class Game {
         const pp = this.player.body.translation();
         aimAngle = Math.atan2(wy - pp.y, wx - pp.x);
       }
-      this.playerFrame = updatePlayer(this.player, this.input, dt, aimAngle);
+      this.playerFrame = updatePlayer(this.player, this.input, dt, aimAngle, this.cheats);
       this.emitEngineTrail();
       const lungesUnlocked =
         this.gemsCollected >= this.gemCount * HUNTER_LUNGE_GEM_FRACTION;
@@ -698,6 +714,9 @@ export class Game {
   }
 
   private asteroidImpact(asteroid: Asteroid): void {
+    // Cheat mode: rocks still bounce physically, but never dent the hull or
+    // burn the shield. Hunter contact stays lethal — handled elsewhere.
+    if (this.cheats) return;
     if (this.player.damageCooldown > 0) return;
     const pv = this.player.body.linvel();
     const av = asteroid.body.linvel();
@@ -758,7 +777,8 @@ export class Game {
     this.particles.burst(p.x, p.y, 50, 380, 1.1, 5, '#3fd6ff');
     this.particles.burst(p.x, p.y, 30, 260, 0.9, 4, '#ffffff');
     this.camera.addShake(22);
-    this.isNewHighScore = saveHighScore(this.score);
+    // Cheated runs never touch the high score.
+    this.isNewHighScore = this.cheatsUsed ? false : saveHighScore(this.score);
     if (this.isNewHighScore) this.highScore = this.score;
   }
 
@@ -788,7 +808,8 @@ export class Game {
       boostBonus,
       total: this.score,
     };
-    this.isNewHighScore = saveHighScore(this.score);
+    // Cheated runs never touch the high score.
+    this.isNewHighScore = this.cheatsUsed ? false : saveHighScore(this.score);
     if (this.isNewHighScore) this.highScore = this.score;
     const g = this.gate;
     this.particles.burst(g.x, g.y, 60, 300, 1.2, 4, '#5dff8a');

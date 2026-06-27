@@ -56,6 +56,7 @@ export function updatePlayer(
   input: Input,
   dt: number,
   aimAngle: number | null = null,
+  cheats = false,
 ): PlayerFrame {
   const { body } = player;
   player.damageCooldown = Math.max(0, player.damageCooldown - dt);
@@ -73,8 +74,11 @@ export function updatePlayer(
   body.resetForces(true);
 
   const thrusting = input.thrust || (aimAngle !== null && input.mouseDown);
-  const boosting = input.boost && thrusting && player.boostFuel > 0;
-  if (boosting) {
+  const boosting = input.boost && thrusting && (cheats || player.boostFuel > 0);
+  if (cheats) {
+    // Infinite boost: the tank never empties.
+    player.boostFuel = BOOST_MAX;
+  } else if (boosting) {
     player.boostFuel = Math.max(0, player.boostFuel - BOOST_DRAIN * dt);
   } else {
     player.boostFuel = Math.min(BOOST_MAX, player.boostFuel + BOOST_REGEN * dt);

@@ -30,6 +30,15 @@ export function drawHud(
   drawBar(ctx, 16, h - 52, 180, 10, game.player.hull / HULL_MAX, hullColor(game.player.hull / HULL_MAX), 'HULL');
   drawBar(ctx, 16, h - 26, 180, 10, game.player.boostFuel / BOOST_MAX, '#3fd6ff', 'BOOST');
 
+  // Cheat-mode badge: only shows while test mode is live, so it's obvious the
+  // run is tainted (and that its score won't save).
+  if (game.cheats) {
+    ctx.textAlign = 'left';
+    ctx.font = `bold 12px ${FONT}`;
+    ctx.fillStyle = `rgba(255,210,74,${0.65 + 0.35 * Math.sin(game.time * 6)})`;
+    ctx.fillText('⚡ CHEATS — SCORE WON’T SAVE', 206, h - 24);
+  }
+
   drawMinimap(ctx, game, w);
   drawHunterArrow(ctx, game, w, h);
   if (game.gate.active) drawGateArrow(ctx, game, w, h);

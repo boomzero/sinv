@@ -1,6 +1,8 @@
 export class Input {
   private down = new Set<string>();
   private just = new Set<string>();
+  // Rolling buffer of recently typed letters, for edge://surf-style cheat codes.
+  private typed = '';
   mouseX = 0;
   mouseY = 0;
   mouseDown = false;
@@ -16,6 +18,10 @@ export class Input {
       }
       if (!e.repeat) this.just.add(e.code);
       this.down.add(e.code);
+      // Track single printable characters for typed cheat sequences.
+      if (e.key.length === 1) {
+        this.typed = (this.typed + e.key.toLowerCase()).slice(-24);
+      }
     });
     window.addEventListener('keyup', (e) => this.down.delete(e.code));
     window.addEventListener('blur', () => {
@@ -48,6 +54,19 @@ export class Input {
   }
   get boost(): boolean {
     return this.down.has('Space') || this.down.has('ShiftLeft');
+  }
+
+  /**
+   * edge://surf-style cheat entry: returns true once when the player has just
+   * finished typing `word` on the keyboard, then clears the buffer so the same
+   * word must be retyped to fire again.
+   */
+  consumeTyped(word: string): boolean {
+    if (this.typed.endsWith(word)) {
+      this.typed = '';
+      return true;
+    }
+    return false;
   }
 
   /** Edge-triggered: returns true once per physical key press. */
