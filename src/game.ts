@@ -70,7 +70,7 @@ import {
 
 // Hidden cheat code: type these letters during a run (edge://surf style) to
 // toggle test mode — infinite boost and asteroid invulnerability. Undocumented.
-const CHEAT_CODE = 'iddqd';
+const CHEAT_CODE = 'kelly';
 
 export type GameState = 'menu' | 'playing' | 'paused' | 'gameover' | 'win';
 export type LossReason = 'caught' | 'destroyed';
