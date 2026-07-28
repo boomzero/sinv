@@ -17,12 +17,16 @@ import { GATE_RADIUS } from '../entities/pickup';
 // --- Pre-rendered glow sprites for pickups (shadowBlur is expensive live) ---
 
 const SPRITE_SIZE = 64;
+// Bonus gems get scaled up to ~1.7x at draw time; rasterize at a higher
+// internal resolution so that upscaling doesn't look chunky/aliased.
+const SPRITE_SCALE = Math.min(4, Math.max(2, (typeof window !== 'undefined' ? window.devicePixelRatio : 1) * 2));
 
 function makeSprite(draw: (ctx: CanvasRenderingContext2D) => void): HTMLCanvasElement {
   const c = document.createElement('canvas');
-  c.width = SPRITE_SIZE;
-  c.height = SPRITE_SIZE;
+  c.width = SPRITE_SIZE * SPRITE_SCALE;
+  c.height = SPRITE_SIZE * SPRITE_SCALE;
   const ctx = c.getContext('2d')!;
+  ctx.scale(SPRITE_SCALE, SPRITE_SCALE);
   ctx.translate(SPRITE_SIZE / 2, SPRITE_SIZE / 2);
   draw(ctx);
   return c;
@@ -304,7 +308,7 @@ function drawPickup(ctx: CanvasRenderingContext2D, p: Pickup, time: number): voi
     ctx.stroke();
   }
   ctx.scale(s, s);
-  ctx.drawImage(sprite, -SPRITE_SIZE / 2, -SPRITE_SIZE / 2);
+  ctx.drawImage(sprite, -SPRITE_SIZE / 2, -SPRITE_SIZE / 2, SPRITE_SIZE, SPRITE_SIZE);
   ctx.restore();
 }
 
