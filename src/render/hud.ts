@@ -4,6 +4,16 @@ import { DIFFICULTIES } from '../difficulty';
 
 const FONT = 'monospace';
 
+// Below this "design" resolution the whole HUD/overlay is scaled down so text
+// keeps fitting the viewport instead of overflowing or overlapping — lets the
+// game stay legible in an arbitrarily small window.
+const REF_W = 900;
+const REF_H = 620;
+
+function uiScale(w: number, h: number): number {
+  return Math.min(1, w / REF_W, h / REF_H);
+}
+
 export function drawHud(
   ctx: CanvasRenderingContext2D,
   game: Game,
@@ -12,7 +22,12 @@ export function drawHud(
 ): void {
   if (game.state === 'menu') return;
 
+  const scale = uiScale(w, h);
+  const sw = w / scale;
+  const sh = h / scale;
+
   ctx.save();
+  ctx.scale(scale, scale);
   ctx.textBaseline = 'top';
 
   // Score / multiplier / gems (top-left)
@@ -27,8 +42,8 @@ export function drawHud(
   ctx.fillText(`GEMS ${game.gemsCollected}/${game.gemCount}`, 70, 40);
 
   // Hull / boost bars (bottom-left)
-  drawBar(ctx, 16, h - 52, 180, 10, game.player.hull / HULL_MAX, hullColor(game.player.hull / HULL_MAX), 'HULL');
-  drawBar(ctx, 16, h - 26, 180, 10, game.player.boostFuel / BOOST_MAX, '#3fd6ff', 'BOOST');
+  drawBar(ctx, 16, sh - 52, 180, 10, game.player.hull / HULL_MAX, hullColor(game.player.hull / HULL_MAX), 'HULL');
+  drawBar(ctx, 16, sh - 26, 180, 10, game.player.boostFuel / BOOST_MAX, '#3fd6ff', 'BOOST');
 
   // Cheat-mode badge: only shows while test mode is live, so it's obvious the
   // run is tainted (and that its score won't save).
@@ -36,12 +51,12 @@ export function drawHud(
     ctx.textAlign = 'left';
     ctx.font = `bold 12px ${FONT}`;
     ctx.fillStyle = `rgba(255,210,74,${0.65 + 0.35 * Math.sin(game.time * 6)})`;
-    ctx.fillText('⚡ CHEATS — SCORE WON’T SAVE', 206, h - 24);
+    ctx.fillText('⚡ CHEATS — SCORE WON’T SAVE', 206, sh - 24);
   }
 
-  drawMinimap(ctx, game, w);
-  drawHunterArrow(ctx, game, w, h);
-  if (game.gate.active) drawGateArrow(ctx, game, w, h);
+  drawMinimap(ctx, game, sw);
+  drawHunterArrow(ctx, game, w, h, scale);
+  if (game.gate.active) drawGateArrow(ctx, game, w, h, scale);
 
   // Status banners (top-center)
   ctx.textAlign = 'center';
@@ -53,7 +68,7 @@ export function drawHud(
     const label =
       banished.length > 1 ? `${banished.length} HUNTERS LOST TO THE VOID` : 'HUNTER LOST TO THE VOID';
     ctx.fillStyle = `rgba(200,130,255,${0.7 + 0.3 * Math.sin(game.time * 5)})`;
-    ctx.fillText(`${label} — NEXT RETURNS IN ${left}`, w / 2, 16);
+    ctx.fillText(`${label} — NEXT RETURNS IN ${left}`, sw / 2, 16);
   } else if (
     game.state === 'playing' &&
     game.interceptAt >= 0 &&
@@ -62,7 +77,7 @@ export function drawHud(
     const age = game.playT - game.interceptAt;
     const a = age < 0.4 ? age / 0.4 : age > 3.2 ? (4 - age) / 0.8 : 1;
     ctx.fillStyle = `rgba(200,130,255,${0.85 * a})`;
-    ctx.fillText('⚠ INTERCEPTED MSG: HUNTER BHAS DISABLED — PILOT OVERRIDE', w / 2, 16);
+    ctx.fillText('⚠ INTERCEPTED MSG: HUNTER BHAS DISABLED — PILOT OVERRIDE', sw / 2, 16);
   } else if (
     game.state === 'playing' &&
     game.lungeUnlockedAt >= 0 &&
@@ -71,15 +86,15 @@ export function drawHud(
     const age = game.playT - game.lungeUnlockedAt;
     const a = age < 0.4 ? age / 0.4 : age > 3.2 ? (4 - age) / 0.8 : 1;
     ctx.fillStyle = `rgba(255,140,0,${0.9 * a})`;
-    ctx.fillText('⚠ INTERCEPTED MSG: HUNTER WEAPONS HOT — LUNGE DRIVE ARMED', w / 2, 16);
+    ctx.fillText('⚠ INTERCEPTED MSG: HUNTER WEAPONS HOT — LUNGE DRIVE ARMED', sw / 2, 16);
   } else if (game.state === 'playing' && game.playT < game.difficulty.hunterWarmup) {
     const left = Math.ceil(game.difficulty.hunterWarmup - game.playT);
     const noun = game.hunters.length > 1 ? 'HUNTERS' : 'HUNTER';
     ctx.fillStyle = `rgba(255,90,90,${0.6 + 0.4 * Math.sin(game.time * 6)})`;
-    ctx.fillText(`${noun} ONLINE IN ${left}`, w / 2, 16);
+    ctx.fillText(`${noun} ONLINE IN ${left}`, sw / 2, 16);
   } else if (game.gate.active && game.state === 'playing') {
     ctx.fillStyle = `rgba(93,255,138,${0.7 + 0.3 * Math.sin(game.time * 5)})`;
-    ctx.fillText('EXIT GATE ONLINE — RUN!', w / 2, 16);
+    ctx.fillText('EXIT GATE ONLINE — RUN!', sw / 2, 16);
   }
 
   // Close call flash — independent banner below the main status row
@@ -88,7 +103,7 @@ export function drawHud(
     const a = age < 0.15 ? age / 0.15 : age > 1.5 ? (2 - age) / 0.5 : 1;
     ctx.font = `bold 14px ${FONT}`;
     ctx.fillStyle = `rgba(255,153,68,${0.9 * a})`;
-    ctx.fillText(`CLOSE CALL  +${game.lastCloseCallBonus}`, w / 2, 42);
+    ctx.fillText(`CLOSE CALL  +${game.lastCloseCallBonus}`, sw / 2, 42);
   }
 
   ctx.restore();
@@ -177,18 +192,25 @@ function drawEdgeArrow(
   game: Game,
   w: number,
   h: number,
+  scale: number,
   tx: number,
   ty: number,
   color: string,
   pulseRate: number,
 ): void {
-  const s = game.camera.toScreen(tx, ty, w, h);
+  // toScreen works in real (unscaled) canvas pixels, so convert its result
+  // into the logical space the caller's ctx.scale(scale, scale) expects.
+  const real = game.camera.toScreen(tx, ty, w, h);
+  const x = real.x / scale;
+  const y = real.y / scale;
+  const sw = w / scale;
+  const sh = h / scale;
   const margin = 36;
-  if (s.x > margin && s.x < w - margin && s.y > margin && s.y < h - margin) return;
+  if (x > margin && x < sw - margin && y > margin && y < sh - margin) return;
 
-  const cx = Math.max(margin, Math.min(w - margin, s.x));
-  const cy = Math.max(margin, Math.min(h - margin, s.y));
-  const angle = Math.atan2(s.y - h / 2, s.x - w / 2);
+  const cx = Math.max(margin, Math.min(sw - margin, x));
+  const cy = Math.max(margin, Math.min(sh - margin, y));
+  const angle = Math.atan2(y - sh / 2, x - sw / 2);
   const alpha = 0.55 + 0.45 * Math.sin(game.time * pulseRate);
 
   ctx.save();
@@ -211,6 +233,7 @@ function drawHunterArrow(
   game: Game,
   w: number,
   h: number,
+  scale: number,
 ): void {
   if (game.state !== 'playing') return;
   const pp = game.player.body.translation();
@@ -220,7 +243,7 @@ function drawHunterArrow(
     const dist = Math.hypot(hp.x - pp.x, hp.y - pp.y);
     // Pulse faster as the hunter closes in
     const rate = 2 + 2500 / Math.max(dist, 120);
-    drawEdgeArrow(ctx, game, w, h, hp.x, hp.y, '#ff5050', rate);
+    drawEdgeArrow(ctx, game, w, h, scale, hp.x, hp.y, '#ff5050', rate);
   }
 }
 
@@ -229,9 +252,10 @@ function drawGateArrow(
   game: Game,
   w: number,
   h: number,
+  scale: number,
 ): void {
   if (game.state !== 'playing') return;
-  drawEdgeArrow(ctx, game, w, h, game.gate.x, game.gate.y, '#5dff8a', 4);
+  drawEdgeArrow(ctx, game, w, h, scale, game.gate.x, game.gate.y, '#5dff8a', 4);
 }
 
 export function drawOverlay(
@@ -242,27 +266,32 @@ export function drawOverlay(
 ): void {
   if (game.state === 'playing') return;
 
+  const scale = uiScale(w, h);
+  const sw = w / scale;
+  const sh = h / scale;
+
   ctx.save();
+  ctx.scale(scale, scale);
   ctx.fillStyle = 'rgba(3,3,12,0.62)';
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillRect(0, 0, sw, sh);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
   if (game.state === 'menu') {
-    const cy = h / 2;
+    const cy = sh / 2;
     ctx.fillStyle = '#9beaff';
     ctx.font = `bold 64px ${FONT}`;
     ctx.shadowColor = '#3fd6ff';
     ctx.shadowBlur = 24;
-    ctx.fillText('S I N V', w / 2, cy - 168);
+    ctx.fillText('S I N V', sw / 2, cy - 168);
     ctx.shadowBlur = 0;
     ctx.font = `bold 16px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.8)';
-    ctx.fillText('SPACE SCAVENGER', w / 2, cy - 124);
+    ctx.fillText('SPACE SCAVENGER', sw / 2, cy - 124);
     if (game.highScore > 0) {
       ctx.font = `14px ${FONT}`;
       ctx.fillStyle = 'rgba(255,210,74,0.7)';
-      ctx.fillText(`BEST  ${game.highScore}`, w / 2, cy - 100);
+      ctx.fillText(`BEST  ${game.highScore}`, sw / 2, cy - 100);
     }
 
     // Objective — the two sentences that matter
@@ -270,14 +299,14 @@ export function drawOverlay(
     ctx.fillStyle = 'rgba(232,244,255,0.95)';
     ctx.fillText(
       `Collect all ${game.gemCount} gems, unlock the exit gate, escape.`,
-      w / 2,
+      sw / 2,
       cy - 70,
     );
     ctx.fillText(
       game.difficulty.hunterCount > 1
         ? `One touch from either of the ${game.difficulty.hunterCount} hunters ends the run.`
         : 'One touch from the hunter ends the run.',
-      w / 2,
+      sw / 2,
       cy - 46,
     );
 
@@ -286,27 +315,27 @@ export function drawOverlay(
     ctx.fillStyle = 'rgba(232,244,255,0.5)';
     ctx.fillText(
       'asteroids chip your hull  ·  black hole cores devour ships',
-      w / 2,
+      sw / 2,
       cy - 4,
     );
     ctx.fillText(
       'white holes slingshot you clear and shove the hunter off your tail',
-      w / 2,
+      sw / 2,
       cy + 16,
     );
     ctx.fillText(
       'cyan gems  +100 × mult  (×3 near wells)  ·  shields  absorb one hit & stun the hunter 3 s',
-      w / 2,
+      sw / 2,
       cy + 36,
     );
     ctx.fillText(
       'gold orbs  +1 multiplier (max ×5) · +25 hull  ·  lightning  refills boost tank',
-      w / 2,
+      sw / 2,
       cy + 56,
     );
     ctx.fillText(
       'thread within 90 units of the hunter and escape for a CLOSE CALL bonus',
-      w / 2,
+      sw / 2,
       cy + 76,
     );
 
@@ -314,12 +343,12 @@ export function drawOverlay(
     ctx.fillStyle = 'rgba(232,244,255,0.7)';
     ctx.fillText(
       'W thrust  ·  A·D turn  ·  S retro  ·  SPACE boost  ·  P pause  ·  R restart',
-      w / 2,
+      sw / 2,
       cy + 96,
     );
     ctx.fillText(
       `M mouse steering (${game.mouseSteer ? 'ON' : 'OFF'}) — aim with cursor, hold click to thrust`,
-      w / 2,
+      sw / 2,
       cy + 118,
     );
 
@@ -329,7 +358,7 @@ export function drawOverlay(
     const gap = 44;
     const widths = labels.map((s) => ctx.measureText(s).width);
     const total = widths.reduce((a, b) => a + b, 0) + gap * (labels.length - 1);
-    let x = w / 2 - total / 2;
+    let x = sw / 2 - total / 2;
     labels.forEach((label, i) => {
       const selected = i === game.difficultyIndex;
       ctx.textAlign = 'left';
@@ -343,24 +372,24 @@ export function drawOverlay(
     ctx.textAlign = 'center';
     ctx.font = `12px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.45)';
-    ctx.fillText(game.difficulty.blurb, w / 2, cy + 200);
+    ctx.fillText(game.difficulty.blurb, sw / 2, cy + 200);
 
     ctx.font = `bold 20px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS ENTER TO LAUNCH', w / 2, cy + 228);
+    ctx.fillText('PRESS ENTER TO LAUNCH', sw / 2, cy + 228);
   } else if (game.state === 'paused') {
     ctx.fillStyle = '#e8f4ff';
     ctx.font = `bold 44px ${FONT}`;
     ctx.shadowColor = '#3fd6ff';
     ctx.shadowBlur = 18;
-    ctx.fillText('PAUSED', w / 2, h / 2 - 24);
+    ctx.fillText('PAUSED', sw / 2, sh / 2 - 24);
     ctx.shadowBlur = 0;
     ctx.font = `bold 16px ${FONT}`;
     ctx.fillStyle = `rgba(232,244,255,${0.5 + 0.3 * Math.sin(game.time * 4)})`;
-    ctx.fillText('P / ESC  resume', w / 2, h / 2 + 28);
+    ctx.fillText('P / ESC  resume', sw / 2, sh / 2 + 28);
     ctx.font = `14px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.55)';
-    ctx.fillText('R  restart with a new map', w / 2, h / 2 + 56);
+    ctx.fillText('R  restart with a new map', sw / 2, sh / 2 + 56);
   } else if (game.state === 'gameover') {
     ctx.fillStyle = '#ff5050';
     ctx.font = `bold 44px ${FONT}`;
@@ -368,49 +397,49 @@ export function drawOverlay(
     ctx.shadowBlur = 20;
     ctx.fillText(
       game.lossReason === 'caught' ? 'CAUGHT BY THE HUNTER' : 'SHIP DESTROYED',
-      w / 2,
-      h / 2 - 60,
+      sw / 2,
+      sh / 2 - 60,
     );
     ctx.shadowBlur = 0;
     ctx.font = `bold 24px ${FONT}`;
     ctx.fillStyle = '#e8f4ff';
-    ctx.fillText(`FINAL SCORE  ${game.score}`, w / 2, h / 2);
+    ctx.fillText(`FINAL SCORE  ${game.score}`, sw / 2, sh / 2);
     if (game.isNewHighScore) {
       ctx.font = `bold 14px ${FONT}`;
       ctx.fillStyle = `rgba(255,210,74,${0.7 + 0.3 * Math.sin(game.time * 6)})`;
-      ctx.fillText('NEW BEST!', w / 2, h / 2 + 22);
+      ctx.fillText('NEW BEST!', sw / 2, sh / 2 + 22);
     } else {
       ctx.font = `14px ${FONT}`;
       ctx.fillStyle = 'rgba(255,210,74,0.5)';
-      ctx.fillText(`best  ${game.highScore}`, w / 2, h / 2 + 22);
+      ctx.fillText(`best  ${game.highScore}`, sw / 2, sh / 2 + 22);
     }
     ctx.font = `16px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.7)';
     ctx.fillText(
       `gems ${game.gemsCollected}/${game.gemCount}   ·   survived ${Math.floor(game.playT)}s   ·   hull healed ${Math.round(game.player.healedTotal)}`,
-      w / 2,
-      h / 2 + 46,
+      sw / 2,
+      sh / 2 + 46,
     );
     ctx.font = `14px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.45)';
-    ctx.fillText(`difficulty: ${game.difficulty.name}  (${game.difficulty.scoreMultiplier}× score)`, w / 2, h / 2 + 70);
+    ctx.fillText(`difficulty: ${game.difficulty.name}  (${game.difficulty.scoreMultiplier}× score)`, sw / 2, sh / 2 + 70);
     ctx.font = `bold 18px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS R TO RETRY', w / 2, h / 2 + 106);
+    ctx.fillText('PRESS R TO RETRY', sw / 2, sh / 2 + 106);
   } else if (game.state === 'win') {
-    const cy = h / 2;
+    const cy = sh / 2;
     ctx.fillStyle = '#5dff8a';
     ctx.font = `bold 48px ${FONT}`;
     ctx.shadowColor = '#5dff8a';
     ctx.shadowBlur = 24;
-    ctx.fillText('ESCAPED!', w / 2, cy - 168);
+    ctx.fillText('ESCAPED!', sw / 2, cy - 168);
     ctx.shadowBlur = 0;
 
     ctx.font = `13px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.6)';
     ctx.fillText(
       `escaped in ${Math.floor(game.playT)}s · ${Math.round(game.player.hull)}% hull · ${game.difficulty.name} ${game.difficulty.scoreMultiplier}× · healed ${Math.round(game.player.healedTotal)}`,
-      w / 2,
+      sw / 2,
       cy - 128,
     );
 
@@ -418,8 +447,8 @@ export function drawOverlay(
     const b = game.winBreakdown;
     if (b) {
       const colW = 300;
-      const lx = w / 2 - colW / 2;
-      const rx = w / 2 + colW / 2;
+      const lx = sw / 2 - colW / 2;
+      const rx = sw / 2 + colW / 2;
       let ry = cy - 96;
       const row = (label: string, value: number, dim = false) => {
         ctx.font = `15px ${FONT}`;
@@ -457,17 +486,17 @@ export function drawOverlay(
       if (game.isNewHighScore) {
         ctx.font = `bold 15px ${FONT}`;
         ctx.fillStyle = `rgba(255,210,74,${0.7 + 0.3 * Math.sin(game.time * 6)})`;
-        ctx.fillText('★ NEW BEST! ★', w / 2, ry);
+        ctx.fillText('★ NEW BEST! ★', sw / 2, ry);
       } else {
         ctx.font = `14px ${FONT}`;
         ctx.fillStyle = 'rgba(255,210,74,0.5)';
-        ctx.fillText(`best  ${game.highScore}`, w / 2, ry);
+        ctx.fillText(`best  ${game.highScore}`, sw / 2, ry);
       }
     }
 
     ctx.font = `bold 18px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS R TO FLY AGAIN', w / 2, cy + 130);
+    ctx.fillText('PRESS R TO FLY AGAIN', sw / 2, cy + 130);
   }
   ctx.restore();
 }
