@@ -77,4 +77,6 @@ Balance regressions check cloud density and rewards, the outdoor gem budget, opt
 
 `npm test` also runs a collection autopilot on terrain seeds 0, 19 and 42 using real ship steering, fuel, collisions and gem sensors. Hunters are removed and hull is restored each frame to isolate collection time; this is not a human playthrough. A broad 100–180 second regression window catches collapsed or excessively stretched routes. The pilot does not validate gravity-sector timing or evasive play under pursuit; exploratory gravity runs crashed and are not treated as timing results.
 
+GitHub Actions runs `npm run build` and `npm test` on Node 22 for every push and for pull requests from forks; the workflow lives in `.github/workflows/ci.yml`. The balance survey stays a manual command.
+
 The route check verifies geometric access, not whether every route is survivable during a chase. Hunter balance, fuel pressure, and the feel of each shortcut still benefit from human playtesting. Mid-run events and additional artwork for individual wrecks are future extensions.
