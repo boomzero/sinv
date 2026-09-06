@@ -18,7 +18,30 @@ async function boot(): Promise<void> {
   resize();
 
   const game = new Game();
-  game.reset((Math.random() * 2 ** 31) | 0);
+  const seedParam = new URLSearchParams(location.search).get('seed');
+  const seed = seedParam !== null && /^\d{1,10}$/.test(seedParam) ? Number(seedParam) >>> 0 : (Math.random() * 2 ** 31) | 0;
+  game.reset(seed);
+
+  const mapButton = document.getElementById('map-button') as HTMLButtonElement;
+  const launchButton = document.getElementById('launch-button') as HTMLButtonElement;
+  mapButton.addEventListener('click', () => { game.toggleChart(); mapButton.blur(); });
+  launchButton.addEventListener('click', () => { game.launch(); launchButton.blur(); });
+  let uiState = '';
+  function syncControls(): void {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    const key = `${game.state}:${game.chartOpen}:${game.mapH}:${w}:${h}`;
+    if (key === uiState) return;
+    uiState = key;
+    const scale = Math.min(1, w / 900, h / 620);
+    mapButton.hidden = game.state === 'gameover' || game.state === 'win';
+    mapButton.innerHTML = game.chartOpen ? 'Close map <small>Esc</small>' : 'Map &amp; legend <small>Tab</small>';
+    mapButton.setAttribute('aria-expanded', String(game.chartOpen));
+    mapButton.style.top = `${game.chartOpen || game.state === 'menu' ? 16 : (28 + 170 * game.mapH / game.mapW) * scale}px`;
+    mapButton.style.transform = `scale(${scale})`;
+    launchButton.hidden = game.state !== 'menu' || game.chartOpen;
+    launchButton.style.top = `${h / 2 + 227 * scale}px`;
+    launchButton.style.transform = `translateX(-50%) scale(${scale})`;
+  }
 
   let last = performance.now();
   let acc = 0;
@@ -33,6 +56,7 @@ async function boot(): Promise<void> {
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     game.render(ctx, canvas.clientWidth, canvas.clientHeight);
+    syncControls();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

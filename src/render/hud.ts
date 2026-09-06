@@ -1,3 +1,4 @@
+import { drawChart, drawSectorMap } from './chart';
 import type { Game } from '../game';
 import { HULL_MAX, BOOST_MAX } from '../constants';
 import { DIFFICULTIES } from '../difficulty';
@@ -20,7 +21,7 @@ export function drawHud(
   w: number,
   h: number,
 ): void {
-  if (game.state === 'menu') return;
+  if (game.state === 'menu' || game.chartOpen) return;
 
   const scale = uiScale(w, h);
   const sw = w / scale;
@@ -30,16 +31,33 @@ export function drawHud(
   ctx.scale(scale, scale);
   ctx.textBaseline = 'top';
 
-  // Score / multiplier / gems (top-left)
-  ctx.font = `bold 20px ${FONT}`;
-  ctx.fillStyle = '#e8f4ff';
+  // Objective first; score is secondary to knowing how to escape.
+  ctx.fillStyle = 'rgba(4,12,22,0.85)'; ctx.fillRect(10, 8, 240, 94);
   ctx.textAlign = 'left';
-  ctx.fillText(`SCORE ${game.score}`, 16, 14);
-  ctx.font = `bold 16px ${FONT}`;
-  ctx.fillStyle = game.player.mult > 1 ? '#ffd24a' : 'rgba(232,244,255,0.5)';
-  ctx.fillText(`×${game.player.mult}`, 16, 40);
-  ctx.fillStyle = '#41ffe0';
-  ctx.fillText(`GEMS ${game.gemsCollected}/${game.gemCount}`, 70, 40);
+  ctx.fillStyle = game.gate.active ? '#76f0a6' : '#41ffe0';
+  ctx.font = `bold 20px ${FONT}`;
+  ctx.fillText(game.gate.active ? 'REACH THE EXIT' : `GEMS ${game.gemsCollected} / ${game.gemCount}`, 20, 16);
+  ctx.font = `12px ${FONT}`; ctx.fillStyle = '#a8bdc9';
+  ctx.fillText(game.gate.active ? 'Follow the green exit arrow' : 'Scavenge asteroid clouds', 20, 44);
+  if (!game.gate.active) ctx.fillText('and landmarks', 20, 60);
+  ctx.font = `11px ${FONT}`; ctx.fillStyle = '#738e9e';
+  ctx.fillText(`Score ${game.score}  ·  ×${game.player.mult}`, 20, 80, 220);
+
+  if (game.discovery && game.playT - game.discoveredAt < 5) {
+    const l = game.discovery, age = game.playT - game.discoveredAt;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, age * 3, 5 - age);
+    ctx.fillStyle = 'rgba(4,14,24,0.9)';
+    ctx.fillRect(sw / 2 - 225, sh - 135, 450, 70);
+    ctx.fillStyle = l.color;
+    ctx.fillRect(sw / 2 - 225, sh - 135, 2, 70);
+    ctx.textAlign = 'center';
+    ctx.font = `10px ${FONT}`;
+    ctx.fillText(`REGION DISCOVERED  /  ${l.condition.toUpperCase()}`, sw / 2, sh - 123);
+    ctx.font = `bold 21px ${FONT}`;
+    ctx.fillText(l.name, sw / 2, sh - 101);
+    ctx.restore();
+  }
 
   // Hull / boost bars (bottom-left)
   drawBar(ctx, 16, sh - 52, 180, 10, game.player.hull / HULL_MAX, hullColor(game.player.hull / HULL_MAX), 'HULL');
@@ -77,7 +95,7 @@ export function drawHud(
     const age = game.playT - game.interceptAt;
     const a = age < 0.4 ? age / 0.4 : age > 3.2 ? (4 - age) / 0.8 : 1;
     ctx.fillStyle = `rgba(200,130,255,${0.85 * a})`;
-    ctx.fillText('⚠ INTERCEPTED MSG: HUNTER BHAS DISABLED — PILOT OVERRIDE', sw / 2, 16);
+    ctx.fillText('BHAS DISABLED — PILOT OVERRIDE', sw / 2, 16);
   } else if (
     game.state === 'playing' &&
     game.lungeUnlockedAt >= 0 &&
@@ -86,7 +104,7 @@ export function drawHud(
     const age = game.playT - game.lungeUnlockedAt;
     const a = age < 0.4 ? age / 0.4 : age > 3.2 ? (4 - age) / 0.8 : 1;
     ctx.fillStyle = `rgba(255,140,0,${0.9 * a})`;
-    ctx.fillText('⚠ INTERCEPTED MSG: HUNTER WEAPONS HOT — LUNGE DRIVE ARMED', sw / 2, 16);
+    ctx.fillText('WATCH OUT — HUNTER CAN NOW DASH', sw / 2, 16);
   } else if (game.state === 'playing' && game.playT < game.difficulty.hunterWarmup) {
     const left = Math.ceil(game.difficulty.hunterWarmup - game.playT);
     const noun = game.hunters.length > 1 ? 'HUNTERS' : 'HUNTER';
@@ -140,51 +158,10 @@ function drawBar(
 
 function drawMinimap(ctx: CanvasRenderingContext2D, game: Game, w: number): void {
   const mw = 170;
-  const mh = (mw * game.mapH) / game.mapW;
-  const mx = w - mw - 16;
-  const my = 16;
-  const sx = mw / game.mapW;
-  const sy = mh / game.mapH;
-
-  ctx.fillStyle = 'rgba(5,5,20,0.65)';
-  ctx.fillRect(mx, my, mw, mh);
-  ctx.strokeStyle = 'rgba(120,80,255,0.6)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(mx, my, mw, mh);
-
-  for (const well of game.wells) {
-    ctx.fillStyle =
-      well.polarity === 1 ? 'rgba(200,130,255,0.3)' : 'rgba(210,240,255,0.25)';
-    ctx.beginPath();
-    ctx.arc(mx + well.x * sx, my + well.y * sy, well.radius * sx, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.fillStyle = '#41ffe0';
-  for (const p of game.pickups) {
-    if (p.taken || p.type !== 'gem') continue;
-    const r = p.bonus ? 1.5 : 1;
-    ctx.fillRect(mx + p.x * sx - r, my + p.y * sy - r, r * 2, r * 2);
-  }
-  // Gate
-  ctx.fillStyle = game.gate.active ? '#5dff8a' : 'rgba(140,150,160,0.7)';
-  ctx.fillRect(mx + game.gate.x * sx - 2, my + game.gate.y * sy - 2, 4, 4);
-  // Hunters — each hidden while a black hole has it
-  ctx.fillStyle = '#ff5050';
-  for (const hunter of game.hunters) {
-    if (game.respawning(hunter)) continue;
-    const hp = hunter.body.translation();
-    ctx.beginPath();
-    ctx.arc(mx + hp.x * sx, my + hp.y * sy, 3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // Player
-  if (game.player.alive) {
-    const pp = game.player.body.translation();
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(mx + pp.x * sx, my + pp.y * sy, 3, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  ctx.save();
+  ctx.translate(w - mw - 16, 16);
+  drawSectorMap(ctx, game, mw / game.mapW, true);
+  ctx.restore();
 }
 
 function drawEdgeArrow(
@@ -264,6 +241,7 @@ export function drawOverlay(
   w: number,
   h: number,
 ): void {
+  if (game.chartOpen) { drawChart(ctx, game, w, h); return; }
   if (game.state === 'playing') return;
 
   const scale = uiScale(w, h);
@@ -287,70 +265,24 @@ export function drawOverlay(
     ctx.shadowBlur = 0;
     ctx.font = `bold 16px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.8)';
-    ctx.fillText('SPACE SCAVENGER', sw / 2, cy - 124);
+    ctx.fillText('SPACE SCAVENGER / LUMINOUS RUINS', sw / 2, cy - 124);
     if (game.highScore > 0) {
       ctx.font = `14px ${FONT}`;
       ctx.fillStyle = 'rgba(255,210,74,0.7)';
       ctx.fillText(`BEST  ${game.highScore}`, sw / 2, cy - 100);
     }
 
-    // Objective — the two sentences that matter
-    ctx.font = `15px ${FONT}`;
-    ctx.fillStyle = 'rgba(232,244,255,0.95)';
-    ctx.fillText(
-      `Collect all ${game.gemCount} gems, unlock the exit gate, escape.`,
-      sw / 2,
-      cy - 70,
-    );
-    ctx.fillText(
-      game.difficulty.hunterCount > 1
-        ? `One touch from either of the ${game.difficulty.hunterCount} hunters ends the run.`
-        : 'One touch from the hunter ends the run.',
-      sw / 2,
-      cy - 46,
-    );
-
-    // Hazard / pickup tips — quieter, scannable
-    ctx.font = `13px ${FONT}`;
-    ctx.fillStyle = 'rgba(232,244,255,0.5)';
-    ctx.fillText(
-      'asteroids chip your hull  ·  black hole cores devour ships',
-      sw / 2,
-      cy - 4,
-    );
-    ctx.fillText(
-      'white holes slingshot you clear and shove the hunter off your tail',
-      sw / 2,
-      cy + 16,
-    );
-    ctx.fillText(
-      'cyan gems  +100 × mult  (×3 near wells)  ·  shields  absorb one hit & stun the hunter 3 s',
-      sw / 2,
-      cy + 36,
-    );
-    ctx.fillText(
-      'gold orbs  +1 multiplier (max ×5) · +25 hull  ·  lightning  refills boost tank',
-      sw / 2,
-      cy + 56,
-    );
-    ctx.fillText(
-      'thread within 90 units of the hunter and escape for a CLOSE CALL bonus',
-      sw / 2,
-      cy + 76,
-    );
-
-    // Controls
-    ctx.fillStyle = 'rgba(232,244,255,0.7)';
-    ctx.fillText(
-      'W thrust  ·  A·D turn  ·  S retro  ·  SPACE boost  ·  P pause  ·  R restart',
-      sw / 2,
-      cy + 96,
-    );
-    ctx.fillText(
-      `M mouse steering (${game.mouseSteer ? 'ON' : 'OFF'}) — aim with cursor, hold click to thrust`,
-      sw / 2,
-      cy + 118,
-    );
+    ctx.font = `bold 20px ${FONT}`; ctx.fillStyle = '#e8f4ff';
+    ctx.fillText(`Collect ${game.gemCount} gems. Then escape.`, sw / 2, cy - 65);
+    ctx.font = `14px ${FONT}`; ctx.fillStyle = '#acbfcb';
+    ctx.fillText('Fly into cyan diamonds to collect them. Avoid the red hunter.', sw / 2, cy - 34);
+    ctx.fillText('Station walls and rocks are solid. Fly through their gaps.', sw / 2, cy - 9);
+    ctx.fillStyle = '#d8e8f0'; ctx.font = `bold 16px ${FONT}`;
+    ctx.fillText(game.mouseSteer ? 'Aim with mouse     Hold click to fly     SPACE  boost' : 'W  fly forward     A / D  turn     SPACE  boost', sw / 2, cy + 43);
+    ctx.fillStyle = '#96acb9'; ctx.font = `13px ${FONT}`;
+    ctx.fillText(`S  reverse   ·   P  pause   ·   M  mouse steering (${game.mouseSteer ? 'ON' : 'OFF'})`, sw / 2, cy + 73);
+    ctx.fillStyle = '#8ed2df';
+    ctx.fillText('Use “Map & legend” for the map and object meanings.', sw / 2, cy + 117);
 
     // Difficulty selector: [1] EASY  [2] NORMAL  [3] HARD
     ctx.font = `bold 16px ${FONT}`;
@@ -376,7 +308,6 @@ export function drawOverlay(
 
     ctx.font = `bold 20px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
-    ctx.fillText('PRESS ENTER TO LAUNCH', sw / 2, cy + 228);
   } else if (game.state === 'paused') {
     ctx.fillStyle = '#e8f4ff';
     ctx.font = `bold 44px ${FONT}`;

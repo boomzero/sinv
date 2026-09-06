@@ -1,5 +1,8 @@
 import type { Game } from '../game';
-import type { Asteroid, Pickup, GravityWell, PickupType, Hunter } from '../entities/types';
+import type { Pickup, GravityWell, PickupType, Hunter } from '../entities/types';
+import { drawAsteroid } from './asteroids';
+import { drawSymbol, OBJECT_INFO } from './symbols';
+import { drawLandmark } from './landmarks';
 import { drawStarfield } from './starfield';
 import {
   PLAYER_RADIUS,
@@ -36,68 +39,12 @@ let sprites: Record<PickupType, HTMLCanvasElement> | null = null;
 
 function getSprites(): Record<PickupType, HTMLCanvasElement> {
   if (sprites) return sprites;
-  sprites = {
-    gem: makeSprite((ctx) => {
-      ctx.shadowColor = '#41ffe0';
-      ctx.shadowBlur = 14;
-      ctx.strokeStyle = '#41ffe0';
-      ctx.fillStyle = 'rgba(65,255,224,0.25)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(0, -11);
-      ctx.lineTo(8, 0);
-      ctx.lineTo(0, 11);
-      ctx.lineTo(-8, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    }),
-    orb: makeSprite((ctx) => {
-      ctx.shadowColor = '#ffd24a';
-      ctx.shadowBlur = 16;
-      ctx.strokeStyle = '#ffd24a';
-      ctx.fillStyle = 'rgba(255,210,74,0.3)';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(0, 0, 10, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = '#ffd24a';
-      ctx.font = 'bold 11px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('×', 0, 1);
-    }),
-    shield: makeSprite((ctx) => {
-      ctx.shadowColor = '#6699ff';
-      ctx.shadowBlur = 14;
-      ctx.strokeStyle = '#6699ff';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(0, 0, 10, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(0, 0, 5, 0, Math.PI * 2);
-      ctx.stroke();
-    }),
-    boost: makeSprite((ctx) => {
-      ctx.shadowColor = '#b67aff';
-      ctx.shadowBlur = 14;
-      ctx.strokeStyle = '#b67aff';
-      ctx.fillStyle = 'rgba(182,122,255,0.25)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(3, -11);
-      ctx.lineTo(-5, 1);
-      ctx.lineTo(0, 1);
-      ctx.lineTo(-3, 11);
-      ctx.lineTo(5, -1);
-      ctx.lineTo(0, -1);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    }),
-  };
+  const make = (type: PickupType) => makeSprite(ctx => {
+    ctx.shadowColor = OBJECT_INFO[type].color;
+    ctx.shadowBlur = 14;
+    drawSymbol(ctx, type, 0, 0, 11);
+  });
+  sprites = { gem: make('gem'), orb: make('orb'), shield: make('shield'), boost: make('boost') };
   return sprites;
 }
 
@@ -109,13 +56,17 @@ export function drawScene(
   w: number,
   h: number,
 ): void {
-  drawStarfield(ctx, game.camera, w, h, game.time);
+  drawStarfield(ctx, game.camera, w, h, game.time, game.mapW, game.mapH);
 
   ctx.save();
   game.camera.apply(ctx, w, h);
 
   drawBounds(ctx, game.time, game.mapW, game.mapH);
   for (const well of game.wells) drawWell(ctx, well, game.time, game.debugDraw);
+  for (const landmark of game.landmarks) {
+    if (Math.abs(landmark.x - game.camera.x) < w / 2 + landmark.radius + 150 &&
+        Math.abs(landmark.y - game.camera.y) < h / 2 + landmark.radius + 150) drawLandmark(ctx, landmark, game.time);
+  }
   drawGate(ctx, game);
   for (const p of game.pickups) {
     if (!p.taken) drawPickup(ctx, p, game.time);
@@ -218,12 +169,21 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
     ctx.stroke();
   }
 
-  ctx.fillStyle = black ? 'rgba(230,180,255,0.9)' : 'rgba(255,255,255,0.95)';
+  // The lethal area must be visible during normal play, not just debugging.
+  if (black) {
+    ctx.fillStyle = '#080510';
+    ctx.strokeStyle = '#e685ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, WELL_CORE_RADIUS, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  } else {
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
   ctx.shadowColor = black ? '#c873ff' : '#bfe6ff';
   ctx.shadowBlur = 20;
   ctx.beginPath();
   ctx.arc(0, 0, 9 + 2 * Math.sin(time * 4), 0, Math.PI * 2);
   ctx.fill();
+  }
+  ctx.shadowBlur = 0;
   ctx.restore();
 }
 
@@ -282,7 +242,7 @@ function drawGate(ctx: CanvasRenderingContext2D, game: Game): void {
       ctx.fillStyle = `rgba(140,220,170,${0.85 * fade})`;
       ctx.fillText(
         left === game.gemCount
-          ? `EXIT GATE — COLLECT ALL ${game.gemCount} GEMS TO UNLOCK`
+          ? `EXIT GATE — COLLECT ANY ${game.gemCount} GEMS TO UNLOCK`
           : `EXIT GATE — ${left} GEM${left === 1 ? '' : 'S'} REMAINING`,
         gate.x,
         gate.y - GATE_RADIUS - 28,
@@ -309,25 +269,6 @@ function drawPickup(ctx: CanvasRenderingContext2D, p: Pickup, time: number): voi
   }
   ctx.scale(s, s);
   ctx.drawImage(sprite, -SPRITE_SIZE / 2, -SPRITE_SIZE / 2, SPRITE_SIZE, SPRITE_SIZE);
-  ctx.restore();
-}
-
-function drawAsteroid(ctx: CanvasRenderingContext2D, a: Asteroid): void {
-  const pos = a.body.translation();
-  const rot = a.body.rotation();
-  ctx.save();
-  ctx.translate(pos.x, pos.y);
-  ctx.rotate(rot);
-  ctx.beginPath();
-  const v = a.verts;
-  ctx.moveTo(v[0], v[1]);
-  for (let i = 1; i < v.length / 2; i++) ctx.lineTo(v[i * 2], v[i * 2 + 1]);
-  ctx.closePath();
-  ctx.fillStyle = '#1d222b';
-  ctx.strokeStyle = '#5a6472';
-  ctx.lineWidth = 2;
-  ctx.fill();
-  ctx.stroke();
   ctx.restore();
 }
 

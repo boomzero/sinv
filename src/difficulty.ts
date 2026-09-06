@@ -1,4 +1,5 @@
 import { HUNTER_WARMUP, ASTEROID_COUNT, GEM_COUNT, MAP_W, MAP_H } from './constants';
+import { readSaved, writeSaved } from './util/storage';
 
 export interface Difficulty {
   name: string;
@@ -24,8 +25,8 @@ export const DIFFICULTIES: Difficulty[] = [
     name: 'EASY',
     hunterSpeedMult: 0.8,
     hunterWarmup: 8,
-    asteroidCount: 24,
-    gemCount: 16,
+    asteroidCount: 70,
+    gemCount: 36,
     scoreMultiplier: 0.7,
     hunterCount: 1,
     mapW: MAP_W,
@@ -48,7 +49,7 @@ export const DIFFICULTIES: Difficulty[] = [
     name: 'HARD',
     hunterSpeedMult: 1.28,
     hunterWarmup: 3,
-    asteroidCount: 46,
+    asteroidCount: 134,
     gemCount: GEM_COUNT,
     scoreMultiplier: 1.5,
     hunterCount: 1,
@@ -60,12 +61,12 @@ export const DIFFICULTIES: Difficulty[] = [
     name: 'EXTREME',
     hunterSpeedMult: 1.3,
     hunterWarmup: 3,
-    asteroidCount: 52,
+    asteroidCount: 220,
     gemCount: GEM_COUNT,
     scoreMultiplier: 2.2,
     hunterCount: 2,
-    mapW: 5200,
-    mapH: 3900,
+    mapW: 8840,
+    mapH: 6630,
     blurb: 'TWO hunters · huge map · fast · short warm-up · dense field · 2.2× score',
   },
 ];
@@ -73,7 +74,7 @@ export const DIFFICULTIES: Difficulty[] = [
 export const DEFAULT_DIFFICULTY = 1; // NORMAL
 
 export function loadDifficultyIndex(): number {
-  const raw = parseInt(localStorage.getItem('sinv-diff') ?? '', 10);
+  const raw = parseInt(readSaved('sinv-diff') ?? '', 10);
   return Number.isInteger(raw) && raw >= 0 && raw < DIFFICULTIES.length
     ? raw
     : DEFAULT_DIFFICULTY;
@@ -82,13 +83,13 @@ export function loadDifficultyIndex(): number {
 const HS_KEY = 'sinv-highscore';
 
 export function loadHighScore(): number {
-  return parseInt(localStorage.getItem(HS_KEY) ?? '0', 10) || 0;
+  return parseInt(readSaved(HS_KEY) ?? '0', 10) || 0;
 }
 
 export function saveHighScore(score: number): boolean {
   const prev = loadHighScore();
   if (score > prev) {
-    localStorage.setItem(HS_KEY, String(score));
+    writeSaved(HS_KEY, String(score));
     return true;
   }
   return false;

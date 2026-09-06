@@ -28,17 +28,23 @@ export interface Hunter {
   respawnAt: number;
   /** playTime until which a bait near a core keeps the hunter recklessly committed. */
   lureCommitUntil: number;
-  /** Strength (0..0.7) of the avoidance reduction captured at bait time. */
+  /** Strength (0..1) of the avoidance reduction captured at bait time. */
   lureStrength: number;
   /** Corner this hunter spawns and re-materializes at. */
   spawnX: number;
   spawnY: number;
   /** 0..1 offset into the lunge cycle, so multiple hunters don't lunge in sync. */
   lungePhase: number;
+  route: { x: number; y: number }[];
+  repathAt: number;
 }
 
 export interface Asteroid {
   kind: 'asteroid';
+  /** Moving asteroid composition controls both its art and physics. */
+  composition?: 'rock' | 'ice';
+  /** Station and landmark pieces are immovable terrain. */
+  fixed?: boolean;
   body: RigidBody;
   collider: Collider;
   radius: number;

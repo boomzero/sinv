@@ -3,6 +3,7 @@ import { PhysicsContext, HUNTER_GROUPS, HUNTER_RAY_GROUPS } from '../physics';
 import type { Hunter, Player, GravityWell } from './types';
 import type { Difficulty } from '../difficulty';
 import { pursue, steerToward, norm, len } from '../ai/steering';
+import type { Navigation } from '../ai/navigation';
 import {
   HUNTER_RADIUS,
   HUNTER_BASE_SPEED,
@@ -48,6 +49,8 @@ export function createHunter(ctx: PhysicsContext, x: number, y: number): Hunter 
     spawnX: x,
     spawnY: y,
     lungePhase: 0,
+    route: [],
+    repathAt: 0,
   };
   ctx.register(collider, hunter);
   return hunter;
@@ -78,6 +81,7 @@ export function updateHunter(
   difficulty: Difficulty,
   wells: GravityWell[],
   dt: number,
+  navigation: Navigation,
 ): void {
   const { body } = hunter;
   body.resetForces(true);
@@ -93,7 +97,35 @@ export function updateHunter(
   const pvel = player.body.linvel();
   const maxSpeed = hunterMaxSpeed(playTime, orbsCollected, difficulty.hunterSpeedMult);
 
-  const desired = pursue(pos, ppos, pvel, maxSpeed);
+  const predictionTime = Math.min(1.2, Math.hypot(ppos.x - pos.x, ppos.y - pos.y) / maxSpeed);
+  const predicted = { x: ppos.x + pvel.x * predictionTime, y: ppos.y + pvel.y * predictionTime };
+  const direct = navigation.clearLine(pos, ppos);
+  const clearPrediction = direct && navigation.clearLine(pos, predicted);
+  const desired = clearPrediction ? pursue(pos, ppos, pvel, maxSpeed) : pursue(pos, ppos, { x: 0, y: 0 }, maxSpeed);
+  if (direct) {
+    hunter.route = [];
+    // Losing sight around a corner needs a route immediately, even when the
+    // previous route's refresh timer hasn't expired yet.
+    hunter.repathAt = 0;
+  } else {
+    if (playTime >= hunter.repathAt) {
+      hunter.route = navigation.findPath(pos, ppos);
+      hunter.repathAt = playTime + 0.6;
+    }
+    // Advance to the furthest visible waypoint without cutting solid corners.
+    while (hunter.route.length > 1 && (Math.hypot(hunter.route[0].x - pos.x, hunter.route[0].y - pos.y) < 28 || navigation.clearLine(pos, hunter.route[1]))) hunter.route.shift();
+    const waypoint = hunter.route[0];
+    if (waypoint) {
+      const delta = { x: waypoint.x - pos.x, y: waypoint.y - pos.y };
+      const distance = len(delta), direction = norm(delta);
+      // Enter a turn slowly enough to follow it with momentum-based physics.
+      const speed = hunter.route.length > 1 ? Math.min(maxSpeed, 85 + distance * 1.2) : maxSpeed;
+      desired.x = direction.x * speed; desired.y = direction.y * speed;
+    } else {
+      // Re-evaluate shortly rather than blindly accelerate into the same wall.
+      desired.x = 0; desired.y = 0;
+    }
+  }
 
   // Black-hole avoidance: the hunter resists the pull but can still be dragged
   // into a core, so it actively steers away from any deadly well it's inside.
@@ -148,19 +180,19 @@ export function updateHunter(
     const obstacle = ctx.byCollider.get(hit.collider.handle);
     const ramThrough =
       obstacle?.kind === 'asteroid' && obstacle.radius < HUNTER_AVOID_MIN_RADIUS;
-    if (!ramThrough) {
+    if (!ramThrough && !(!direct && obstacle?.kind === 'asteroid' && obstacle.fixed)) {
       const urgency = 1 - hit.timeOfImpact / HUNTER_AVOID_DIST;
       desired.x += hit.normal.x * maxSpeed * 1.6 * urgency;
       desired.y += hit.normal.y * maxSpeed * 1.6 * urgency;
     }
   }
 
-  const force = steerToward(vel, desired, body.mass(), HUNTER_GAIN, 1100);
+  const force = steerToward(vel, desired, body.mass(), direct ? HUNTER_GAIN : 6, direct ? 1100 : 1400);
   body.addForce(force, true);
 
   // Periodic lunge once the player has collected most of the gems: telegraphed
   // by a red flash, then an impulse burst toward the predicted position.
-  if (lungesUnlocked) {
+  if (lungesUnlocked && clearPrediction) {
     hunter.lungeTimer -= dt;
     hunter.telegraph =
       hunter.lungeTimer <= HUNTER_LUNGE_TELEGRAPH ? hunter.lungeTimer : 0;
@@ -175,5 +207,7 @@ export function updateHunter(
     }
   } else {
     hunter.telegraph = 0;
+    // A blocked shot must become visible for a full telegraph before firing.
+    hunter.lungeTimer = Math.max(hunter.lungeTimer, HUNTER_LUNGE_TELEGRAPH);
   }
 }

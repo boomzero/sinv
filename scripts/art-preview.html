@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>SINV material review</title>
+<style>
+  body { margin: 20px; background: #070b14; color: #c1d2df; font: 13px monospace; }
+  h1 { font-size: 20px; } h2 { font-size: 13px; margin: 12px; }
+  main { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  section { min-width: 0; background: #0a0e18; border: 1px solid #26323d; }
+  canvas { display: block; width: 100%; } #rocks { width: 100%; height: 155px; }
+</style>
+<h1>SINV · material review</h1>
+<p>Production renderers. Landmark overview, then a crop at flight scale. Asteroids below at flight scale.</p>
+<main></main>
+<h2>Asteroids · 20–70 unit radius · rock: heavy / grippy · ice: light / slippery / bouncy</h2>
+<canvas id="rocks"></canvas>
+<script type="module">
+  import { generateWorld } from '/src/world/generate.ts';
+  import { DIFFICULTIES } from '/src/difficulty.ts';
+  import { drawLandmark } from '/src/render/landmarks.ts';
+  import { drawAsteroid } from '/src/render/asteroids.ts';
+  import { createAsteroid } from '/src/entities/asteroid.ts';
+  import { PhysicsContext } from '/src/physics.ts';
+  import { mulberry32 } from '/src/util/rng.ts';
+  import RAPIER from '@dimforge/rapier2d-compat';
+
+  const fixtures = new Map();
+  for (let seed = 0; fixtures.size < 4 && seed < 100; seed++) {
+    for (const l of generateWorld(seed, DIFFICULTIES[1]).landmarks) {
+      if (l.structures.length && !fixtures.has(l.kind)) fixtures.set(l.kind, l);
+    }
+  }
+  const views = [];
+  for (const l of fixtures.values()) {
+    const section = document.createElement('section');
+    const label = document.createElement('h2'); label.textContent = l.name;
+    const canvas = document.createElement('canvas');
+    section.append(label, canvas); document.querySelector('main').append(section);
+    views.push({ l, canvas });
+  }
+  await RAPIER.init();
+  const physics = new PhysicsContext(), rng = mulberry32(42);
+  const rocks = Array.from({ length: 9 }, (_, i) => createAsteroid(physics, rng, 65 + i * 132, 78, 20 + i * 6.25, 0));
+  function context(canvas, height) {
+    const width = canvas.clientWidth, dpr = devicePixelRatio;
+    canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
+    canvas.style.height = `${height}px`;
+    const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+    return { ctx, width };
+  }
+  function frame(ms) {
+    for (const { l, canvas } of views) {
+      const { ctx, width } = context(canvas, 430);
+      const scale = Math.min(width / (l.radius * 2 + 100), 210 / (l.radius * 2 + 100));
+      ctx.save(); ctx.translate(width / 2, 105); ctx.scale(scale, scale); ctx.translate(-l.x, -l.y);
+      drawLandmark(ctx, l, 0, false); ctx.restore();
+      const v = l.structures[0].verts;
+      const x = v.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b) / (v.length / 2);
+      const y = v.filter((_, i) => i % 2 === 1).reduce((a, b) => a + b) / (v.length / 2);
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 220, width, 210); ctx.clip();
+      ctx.translate(width / 2 - l.x - x, 325 - l.y - y); drawLandmark(ctx, l, 0, false); ctx.restore();
+    }
+    const { ctx } = context(document.querySelector('#rocks'), 155);
+    for (const a of rocks) { a.body.setRotation(ms * 0.0001, true); drawAsteroid(ctx, a); }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+</html>

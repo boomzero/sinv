@@ -3,14 +3,17 @@ import type { EventQueue } from '@dimforge/rapier2d-compat';
 import { PhysicsContext, createWalls } from './physics';
 import { Input } from './input';
 import { Camera } from './camera';
+import { Navigation } from './ai/navigation';
 import { DIFFICULTIES, loadDifficultyIndex, loadHighScore, saveHighScore } from './difficulty';
 import { Particles } from './render/particles';
 import { drawScene } from './render/renderer';
 import { drawHud, drawOverlay } from './render/hud';
-import { mulberry32, range, type RNG } from './util/rng';
+import { mulberry32 } from './util/rng';
+import { generateWorld, distanceToStructure, type Landmark } from './world/generate';
 import { createPlayer, updatePlayer, type PlayerFrame } from './entities/player';
 import { createHunter, updateHunter } from './entities/hunter';
-import { createAsteroid } from './entities/asteroid';
+import { createAsteroid, createStructure, ASTEROID_MATERIALS } from './entities/asteroid';
+import { readSaved, writeSaved } from './util/storage';
 import { createPickup, createGate, removePickup } from './entities/pickup';
 import type {
   Player,
@@ -20,23 +23,15 @@ import type {
   Gate,
   GravityWell,
   Entity,
-  PickupType,
 } from './entities/types';
 import {
   GEM_SCORE,
   GEM_BONUS_MULT,
-  ORB_COUNT,
   MULT_MAX,
-  SHIELD_COUNT,
-  BOOSTCELL_COUNT,
-  WELL_COUNT,
-  WHITE_HOLE_COUNT,
-  WHITE_HOLE_RADIUS,
   WHITE_HOLE_PUSH_FACTOR,
   WHITE_HOLE_SWIRL,
   WHITE_HOLE_SWIRL_DIR,
   HUNTER_SHOVE_DV,
-  WELL_RADIUS,
   WELL_PULL,
   WELL_FALLOFF,
   WELL_MIN_DIST,
@@ -101,8 +96,30 @@ export class Game {
   readonly particles = new Particles();
 
   state: GameState = 'menu';
+  seed = 0;
+  totalGems = 0;
+  landmarks: Landmark[] = [];
+  structures: Asteroid[] = [];
+  chartOpen = false;
+  discovery: Landmark | null = null;
+  discoveredAt = -1;
+  toggleChart(): void {
+    if (this.state !== 'menu' && this.state !== 'playing' && this.state !== 'paused') return;
+    this.chartOpen = !this.chartOpen;
+    if (this.state !== 'menu') this.state = this.chartOpen ? 'paused' : 'playing';
+    this.input.clearHeld();
+  }
+
+  launch(): void {
+    if (this.state !== 'menu') return;
+    this.state = 'playing';
+    this.chartOpen = false;
+    this.playT = 0;
+    this.input.clearHeld();
+    this.camera.snapTo(this.playerSpawn.x, this.playerSpawn.y);
+  }
   lossReason: LossReason = 'caught';
-  mouseSteer = localStorage.getItem('sinv-mouse') === '1';
+  mouseSteer = readSaved('sinv-mouse') === '1';
   debugDraw = false;
   /** Hidden cheat toggle: infinite boost + asteroid invulnerability (hunter stays lethal). */
   cheats = false;
@@ -123,7 +140,6 @@ export class Game {
   mapW = 0;
   mapH = 0;
   private playerSpawn = { x: 0, y: 0 };
-  private gatePos = { x: 0, y: 0 };
   viewW = 0;
   viewH = 0;
 
@@ -150,6 +166,7 @@ export class Game {
   orbsCollected = 0;
 
   physics!: PhysicsContext;
+  navigation!: Navigation;
   private eventQueue!: EventQueue;
   player!: Player;
   hunters: Hunter[] = [];
@@ -162,17 +179,27 @@ export class Game {
   constructor() {
     // Don't let the hunter close in while the player is on another tab
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden && this.state === 'playing') this.state = 'paused';
+      if (document.hidden && this.state === 'playing') {
+        this.state = 'paused';
+        this.input.clearHeld();
+      }
     });
   }
 
   reset(seed: number): void {
+    this.input.clearHeld();
     if (this.physics) this.physics.free();
     if (this.eventQueue) this.eventQueue.free();
     this.physics = new PhysicsContext();
     this.eventQueue = new RAPIER.EventQueue(true);
     this.particles.clear();
     this.asteroids = [];
+    this.structures = [];
+    this.landmarks = [];
+    this.seed = seed >>> 0;
+    this.chartOpen = false;
+    this.discovery = null;
+    this.discoveredAt = -1;
     this.pickups = [];
     this.wells = [];
     this.playT = 0;
@@ -196,9 +223,7 @@ export class Game {
     this.mapH = this.difficulty.mapH;
     const spawns = spawnPositions(this.mapW, this.mapH);
     this.playerSpawn = spawns.player;
-    this.gatePos = spawns.gate;
 
-    const rng = mulberry32(seed);
     createWalls(this.physics, this.mapW, this.mapH);
     this.player = createPlayer(this.physics, spawns.player.x, spawns.player.y);
     this.player.body.setRotation(-Math.PI / 4, true); // face into the map
@@ -212,116 +237,24 @@ export class Game {
       this.hunters.push(hunter);
     }
     this.gate = createGate(this.physics, spawns.gate.x, spawns.gate.y);
-    this.populate(rng);
+    this.populate();
     this.camera.snapTo(spawns.player.x, spawns.player.y);
   }
 
-  private populate(rng: RNG): void {
-    const margin = 180;
-    const farFrom = (
-      x: number,
-      y: number,
-      points: Array<{ x: number; y: number }>,
-      minDist: number,
-    ) => points.every((p) => Math.hypot(p.x - x, p.y - y) >= minDist);
-
-    const sample = (minFromSpawn: number): { x: number; y: number } => {
-      for (let tries = 0; tries < 60; tries++) {
-        const x = range(rng, margin, this.mapW - margin);
-        const y = range(rng, margin, this.mapH - margin);
-        if (
-          Math.hypot(x - this.playerSpawn.x, y - this.playerSpawn.y) >= minFromSpawn &&
-          Math.hypot(x - this.gatePos.x, y - this.gatePos.y) >= 200 &&
-          // Keep random spawns out of gravity fields: white holes push
-          // anything placed inside out of reach, and black wells would
-          // hand out free deep-field gems next to the deliberate bonus
-          // rings (or just feed rocks straight into the core)
-          this.wells.every(
-            (w) => Math.hypot(x - w.x, y - w.y) >= w.radius + 40,
-          )
-        ) {
-          return { x, y };
-        }
-      }
-      return { x: this.mapW / 2, y: this.mapH / 2 };
-    };
-
-    // Gravity wells, spaced out and away from spawn/gate
-    for (let tries = 0; this.wells.length < WELL_COUNT && tries < 300; tries++) {
-      const x = range(rng, 700, this.mapW - 700);
-      const y = range(rng, 600, this.mapH - 600);
-      if (
-        Math.hypot(x - this.playerSpawn.x, y - this.playerSpawn.y) >= 900 &&
-        Math.hypot(x - this.gatePos.x, y - this.gatePos.y) >= 900 &&
-        farFrom(x, y, this.wells, 1100)
-      ) {
-        this.wells.push({ x, y, radius: WELL_RADIUS, polarity: 1 });
-      }
+  private populate(): void {
+    const layout = generateWorld(this.seed, this.difficulty);
+    this.landmarks = layout.landmarks;
+    this.totalGems = layout.totalGems;
+    this.wells = layout.wells;
+    this.navigation = new Navigation(this.mapW, this.mapH, this.landmarks.flatMap(l => l.structures));
+    const rng = mulberry32(this.seed ^ 0x51f15e);
+    for (const landmark of this.landmarks) {
+      for (const shape of landmark.structures) this.structures.push(createStructure(this.physics, shape));
     }
-
-    // White holes: repulsors wedged between the black wells
-    const whiteHoles: GravityWell[] = [];
-    for (let tries = 0; whiteHoles.length < WHITE_HOLE_COUNT && tries < 300; tries++) {
-      const x = range(rng, 600, this.mapW - 600);
-      const y = range(rng, 500, this.mapH - 500);
-      if (
-        Math.hypot(x - this.playerSpawn.x, y - this.playerSpawn.y) >= 800 &&
-        Math.hypot(x - this.gatePos.x, y - this.gatePos.y) >= 700 &&
-        farFrom(x, y, this.wells, 1000) &&
-        farFrom(x, y, whiteHoles, 1000)
-      ) {
-        whiteHoles.push({ x, y, radius: WHITE_HOLE_RADIUS, polarity: -1 });
-      }
-    }
-    this.wells.push(...whiteHoles);
-
-    // Gems: a ring of bonus gems around each well (risk/reward), rest scattered
-    let gemsLeft = this.gemCount;
-    for (const well of this.wells) {
-      if (well.polarity !== 1) continue; // only deadly wells pay bonus gems
-      const ringCount = 4;
-      const startA = rng() * Math.PI * 2;
-      for (let i = 0; i < ringCount && gemsLeft > 0; i++, gemsLeft--) {
-        const a = startA + (i / ringCount) * Math.PI * 2;
-        // Outside the strong-pull zone so grabbing them is a dive, not a death
-        const r = range(rng, 280, 360);
-        this.pickups.push(
-          createPickup(
-            this.physics,
-            'gem',
-            well.x + Math.cos(a) * r,
-            well.y + Math.sin(a) * r,
-            rng() * 10,
-            true,
-          ),
-        );
-      }
-    }
-    while (gemsLeft-- > 0) {
-      const p = sample(400);
-      this.pickups.push(createPickup(this.physics, 'gem', p.x, p.y, rng() * 10));
-    }
-
-    const scatter = (type: PickupType, count: number, minFromSpawn: number) => {
-      for (let i = 0; i < count; i++) {
-        const p = sample(minFromSpawn);
-        this.pickups.push(createPickup(this.physics, type, p.x, p.y, rng() * 10));
-      }
-    };
-    scatter('orb', ORB_COUNT, 700);
-    scatter('shield', SHIELD_COUNT, 500);
-    scatter('boost', BOOSTCELL_COUNT, 300);
-
-    for (let i = 0; i < this.difficulty.asteroidCount; i++) {
-      const p = sample(450);
-      if (
-        this.hunters.some((h) => Math.hypot(p.x - h.spawnX, p.y - h.spawnY) < 250)
-      )
-        continue;
-      // Mostly small rocks, a few big ones
-      const radius = 20 + Math.pow(rng(), 1.8) * 50;
-      this.asteroids.push(createAsteroid(this.physics, rng, p.x, p.y, radius));
-    }
+    for (const p of layout.pickups) this.pickups.push(createPickup(this.physics, p.type, p.x, p.y, p.phase, p.bonus));
+    // Clouds stay coherent over a full run; loose field rocks keep their fast
+    // drift. Both remain physical and can be pushed apart by impacts.
+    for (const r of layout.rocks) this.asteroids.push(createAsteroid(this.physics, rng, r.x, r.y, r.radius, r.cloud === undefined ? 70 : 4));
   }
 
   fixedUpdate(dt: number): void {
@@ -329,7 +262,7 @@ export class Game {
 
     if (this.input.justPressed('KeyM')) {
       this.mouseSteer = !this.mouseSteer;
-      localStorage.setItem('sinv-mouse', this.mouseSteer ? '1' : '0');
+      writeSaved('sinv-mouse', this.mouseSteer ? '1' : '0');
     }
     if (this.input.justPressed('Backquote')) this.debugDraw = !this.debugDraw;
     if (this.input.consumeTyped(CHEAT_CODE)) {
@@ -337,15 +270,20 @@ export class Game {
       // Touching a run with cheats permanently bars its score from saving.
       if (this.cheats) this.cheatsUsed = true;
     }
-    if (this.input.justPressed('KeyR') && this.state !== 'menu') {
+    if (this.input.justPressed('Tab')) this.toggleChart();
+    if (this.state === 'menu' && this.chartOpen && this.input.justPressed('Escape')) this.toggleChart();
+    if (this.input.justPressed('KeyR')) {
+      const wasMenu = this.state === 'menu';
       this.reset((Math.random() * 2 ** 31) | 0);
-      this.state = 'playing';
+      this.state = wasMenu ? 'menu' : 'playing';
     }
     if (
       (this.input.justPressed('KeyP') || this.input.justPressed('Escape')) &&
       (this.state === 'playing' || this.state === 'paused')
     ) {
       this.state = this.state === 'playing' ? 'paused' : 'playing';
+      this.chartOpen = false;
+      this.input.clearHeld();
     }
     if (this.state === 'paused') {
       // Full freeze: no physics, no AI, no particles — only the overlay pulses
@@ -357,13 +295,17 @@ export class Game {
       for (let d = 0; d < DIFFICULTIES.length; d++) {
         if (this.input.justPressed(`Digit${d + 1}`) && d !== this.difficultyIndex) {
           this.difficultyIndex = d;
-          localStorage.setItem('sinv-diff', String(d));
-          this.reset((Math.random() * 2 ** 31) | 0);
+          writeSaved('sinv-diff', String(d));
+          this.reset(this.seed);
         }
       }
       if (this.input.justPressed('Enter')) {
-        this.state = 'playing';
-        this.playT = 0;
+        this.launch();
+      } else {
+        const vista = this.landmarks.find(l => l.kind === 'halo') ?? this.landmarks[0];
+        this.camera.snapTo(vista.x + Math.cos(this.time * 0.06) * 65, vista.y + Math.sin(this.time * 0.06) * 45);
+        this.input.endFrame();
+        return;
       }
     }
 
@@ -408,6 +350,7 @@ export class Game {
           this.difficulty,
           this.wells,
           dt,
+          this.navigation,
         );
         if (hunter.lureCommitUntil > this.playT && this.interceptAt < 0) {
           this.interceptAt = this.playT;
@@ -431,6 +374,16 @@ export class Game {
       this.handleContact(b, a);
     });
 
+    if (this.state === 'playing') {
+      const p = this.player.body.translation();
+      for (const landmark of this.landmarks) {
+        if (!landmark.discovered && Math.hypot(p.x - landmark.x, p.y - landmark.y) < landmark.radius + 120) {
+          landmark.discovered = true;
+          this.discovery = landmark;
+          this.discoveredAt = this.playT;
+        }
+      }
+    }
     this.tickCloseCall(dt);
     this.particles.update(dt);
     const pos = this.player.body.translation();
@@ -602,14 +555,15 @@ export class Game {
         if (Math.hypot(well.x - p.x, well.y - p.y) >= WELL_CORE_RADIUS) continue;
         this.particles.burst(p.x, p.y, 12, 180, 0.6, 4, '#c873ff');
         const ppos = this.player.body.translation();
-        let x = this.mapW / 2;
-        let y = this.mapH / 2;
+        let x = ppos.x < this.mapW / 2 ? this.mapW - 160 : 160;
+        let y = 160;
         for (let tries = 0; tries < 40; tries++) {
           const cx = 180 + Math.random() * (this.mapW - 360);
           const cy = 180 + Math.random() * (this.mapH - 360);
           if (
             Math.hypot(cx - ppos.x, cy - ppos.y) > 600 &&
-            this.wells.every((w) => Math.hypot(cx - w.x, cy - w.y) > WELL_RADIUS)
+            this.wells.every((w) => Math.hypot(cx - w.x, cy - w.y) > w.radius + asteroid.radius) &&
+            this.landmarks.every(l => l.structures.every(s => distanceToStructure({ x: cx, y: cy }, s) > asteroid.radius + 30))
           ) {
             x = cx;
             y = cy;
@@ -655,7 +609,7 @@ export class Game {
       else if (b.kind === 'gate' && b.active) this.win();
       else if (b.kind === 'hunter') this.resolveHunterTouch(b);
       else if (b.kind === 'asteroid') this.asteroidImpact(b);
-    } else if (a.kind === 'hunter' && b.kind === 'asteroid') {
+    } else if (a.kind === 'hunter' && b.kind === 'asteroid' && !b.fixed) {
       // The hunter bulldozes: any rock it touches gets launched along its
       // direction of travel, turning the chase itself into a hazard.
       const hv = a.body.linvel();
@@ -667,7 +621,10 @@ export class Game {
       const dl = Math.hypot(dx, dy) || 1;
       dx /= dl;
       dy /= dl;
-      const m = b.body.mass();
+      // Use equal impulse for equal-size rocks. Scaling by the struck body's
+      // mass would erase the lighter ice material's response to this shove.
+      const density = ASTEROID_MATERIALS[b.composition ?? 'rock'].density;
+      const m = b.body.mass() / density;
       b.body.applyImpulse(
         { x: dx * HUNTER_SHOVE_DV * m, y: dy * HUNTER_SHOVE_DV * m },
         true,

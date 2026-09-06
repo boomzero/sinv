@@ -1,6 +1,7 @@
 // World
-export const MAP_W = 4000;
-export const MAP_H = 3000;
+export const MAP_W = 6800;
+export const MAP_H = 5100;
+export const LANDMARK_SCALE = 1.7;
 export const WALL_T = 80;
 
 // Player ship
@@ -42,11 +43,11 @@ export const HUNTER_LUNGE_GEM_FRACTION = 0.75; // lunges unlock past this collec
 export const HUNTER_AVOID_DIST = 190;
 // Rocks smaller than this the hunter rams straight through instead of dodging
 export const HUNTER_AVOID_MIN_RADIUS = 45;
-// Delta-v shoved into any rock the hunter hits, along its direction of travel
+// Shove delta-v at unit density; lighter ice receives more acceleration.
 export const HUNTER_SHOVE_DV = 320;
 
 // Pickups & map population
-export const GEM_COUNT = 25;
+export const GEM_COUNT = 60;
 export const GEM_SCORE = 100;
 export const GEM_BONUS_MULT = 3; // well-ring gems pay for the risk
 export const ORB_COUNT = 8;
@@ -54,7 +55,7 @@ export const ORB_HEAL = 25; // multiplier orbs also patch the hull
 export const MULT_MAX = 5;
 export const SHIELD_COUNT = 8;
 export const BOOSTCELL_COUNT = 12;
-export const ASTEROID_COUNT = 35;
+export const ASTEROID_COUNT = 100;
 
 // Win-screen scoring
 export const HULL_BONUS_PER = 10; // points per surviving hull point

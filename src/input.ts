@@ -7,10 +7,17 @@ export class Input {
   mouseY = 0;
   mouseDown = false;
 
+  clearHeld(): void {
+    this.down.clear();
+    this.just.clear();
+    this.mouseDown = false;
+  }
+
   constructor() {
     window.addEventListener('keydown', (e) => {
+      if (e.target instanceof Element && e.target.closest('button') && (e.code === 'Enter' || e.code === 'Space')) return;
       if (
-        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab'].includes(
           e.code,
         )
       ) {
@@ -25,14 +32,14 @@ export class Input {
     });
     window.addEventListener('keyup', (e) => this.down.delete(e.code));
     window.addEventListener('blur', () => {
-      this.down.clear();
-      this.mouseDown = false;
+      this.clearHeld();
     });
     window.addEventListener('mousemove', (e) => {
       this.mouseX = e.clientX;
       this.mouseY = e.clientY;
     });
     window.addEventListener('mousedown', (e) => {
+      if (e.target instanceof Element && e.target.closest('button')) return;
       if (e.button === 0) this.mouseDown = true;
     });
     window.addEventListener('mouseup', (e) => {
