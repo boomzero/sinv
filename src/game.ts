@@ -301,6 +301,11 @@ export class Game {
     ) {
       this.togglePause();
     }
+    // Touch devices have no P/Esc key, so a tap on the paused playfield resumes.
+    // The chart keeps its own Close map control, so leave that pause alone.
+    if (this.state === 'paused' && !this.chartOpen && this.input.consumeTap()) {
+      this.togglePause();
+    }
     if (this.state === 'paused') {
       // Full freeze: no physics, no AI, no particles — only the overlay pulses
       this.input.endFrame();

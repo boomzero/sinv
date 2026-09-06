@@ -319,10 +319,14 @@ export function drawOverlay(
     ctx.shadowBlur = 0;
     ctx.font = `bold 16px ${FONT}`;
     ctx.fillStyle = `rgba(232,244,255,${0.5 + 0.3 * Math.sin(game.time * 4)})`;
-    ctx.fillText('P / ESC  resume', sw / 2, sh / 2 + 28);
+    ctx.fillText(game.input.touchCapable ? 'Tap anywhere to resume' : 'P / ESC  resume', sw / 2, sh / 2 + 28);
     ctx.font = `14px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.55)';
-    ctx.fillText('R  restart with a new map', sw / 2, sh / 2 + 56);
+    ctx.fillText(
+      game.input.touchCapable ? 'or use the Resume button, bottom right' : 'R  restart with a new map',
+      sw / 2,
+      sh / 2 + 56,
+    );
   } else if (game.state === 'gameover') {
     ctx.fillStyle = '#ff5050';
     ctx.font = `bold 44px ${FONT}`;

@@ -320,6 +320,29 @@ try {
   pointer('pointercancel', 2, 100, 100); game.fixedUpdate(1 / 60);
   assert.equal(game.input.touchActive, false); assert.equal(game.playerFrame.thrusting, false);
 
+  // Without a keyboard the paused overlay must still be dismissable: a tap on
+  // the playfield resumes, a drag does not, and the map keeps its own control.
+  game.state = 'playing'; game.togglePause(); assert.equal(game.state, 'paused');
+  pointer('pointerdown', 3, 400, 300); game.fixedUpdate(1 / 60);
+  assert.equal(game.state, 'paused', 'a finger resting on the paused screen keeps the freeze');
+  pointer('pointerup', 3, 406, 303); game.fixedUpdate(1 / 60);
+  assert.equal(game.state, 'playing', 'lifting the finger resumes the run');
+  assert.equal(game.input.touchActive, false, 'the resuming tap leaves no held steering contact');
+  game.togglePause();
+  pointer('pointerdown', 4, 400, 300); pointer('pointermove', 4, 400, 480);
+  pointer('pointerup', 4, 400, 480); game.fixedUpdate(1 / 60);
+  assert.equal(game.state, 'paused', 'dragging across the paused screen is not a resume tap');
+  pointer('pointerdown', 5, 400, 300); pointer('pointercancel', 5, 400, 300); game.fixedUpdate(1 / 60);
+  assert.equal(game.state, 'paused', 'a cancelled touch is not a resume tap');
+  game.togglePause(); assert.equal(game.state, 'playing');
+  pointer('pointerdown', 6, 400, 300); pointer('pointerup', 6, 400, 300);
+  game.fixedUpdate(1 / 60); game.togglePause(); game.fixedUpdate(1 / 60);
+  assert.equal(game.state, 'paused', 'a tap taken while flying cannot resume a later pause');
+  game.togglePause(); key('Tab'); assert.equal(game.state, 'paused'); assert.equal(game.chartOpen, true);
+  pointer('pointerdown', 7, 400, 300); pointer('pointerup', 7, 400, 300); game.fixedUpdate(1 / 60);
+  assert.equal(game.state, 'paused', 'the chart stays open until the player closes the map');
+  key('Tab'); assert.equal(game.state, 'playing');
+
   // The scripted hunter contact impulse must not cancel material density.
   const shoveSpeeds = {};
   for (const composition of ['rock', 'ice']) {
@@ -337,7 +360,7 @@ try {
   globalThis.localStorage = storage;
   writeSaved('release-probe', 'persisted'); saved.set('release-probe', 'changed-in-another-tab');
   assert.equal(readSaved('release-probe'), 'changed-in-another-tab', 'successful writes do not mask changes from other tabs');
-  console.log('PASS: seed-preserving difficulty changes, clean pause/restart/focus input, material-aware hunter shoves and blocked storage.');
+  console.log('PASS: seed-preserving difficulty changes, clean pause/restart/focus input, tap-to-resume, material-aware hunter shoves and blocked storage.');
   game.physics.free();
   console.log('PASS: Rapier terrain, real gem contacts, quota unlock, escape, reset, chart controls, pause and 600 simulation steps.');
 } finally {

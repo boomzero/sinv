@@ -1,3 +1,6 @@
+/** Max travel between a finger landing and lifting for the gesture to count as a tap. */
+const TAP_SLOP = 24;
+
 export class Input {
   private down = new Set<string>();
   private just = new Set<string>();
@@ -9,8 +12,9 @@ export class Input {
   readonly touchCapable =
     (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) ||
     (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches);
-  private touches = new Map<number, { x: number; y: number }>();
+  private touches = new Map<number, { x: number; y: number; startX: number; startY: number }>();
   private primaryTouch: number | null = null;
+  private tapped = false;
 
   get touchActive(): boolean {
     return this.primaryTouch !== null;
@@ -22,6 +26,7 @@ export class Input {
     this.mouseDown = false;
     this.touches.clear();
     this.primaryTouch = null;
+    this.tapped = false;
   }
 
   constructor() {
@@ -65,7 +70,7 @@ export class Input {
       if (e.pointerType !== 'touch') return;
       if (e.target instanceof Element && e.target.closest('button')) return;
       e.preventDefault();
-      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY });
       if (this.primaryTouch === null) {
         this.primaryTouch = e.pointerId;
         this.mouseX = e.clientX;
@@ -73,17 +78,24 @@ export class Input {
       }
     }, { passive: false });
     window.addEventListener('pointermove', (e) => {
-      if (e.pointerType !== 'touch' || !this.touches.has(e.pointerId)) return;
+      const touch = this.touches.get(e.pointerId);
+      if (e.pointerType !== 'touch' || !touch) return;
       e.preventDefault();
-      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      touch.x = e.clientX;
+      touch.y = e.clientY;
       if (e.pointerId === this.primaryTouch) {
         this.mouseX = e.clientX;
         this.mouseY = e.clientY;
       }
     }, { passive: false });
-    const releaseTouch = (e: PointerEvent) => {
-      if (e.pointerType !== 'touch' || !this.touches.has(e.pointerId)) return;
+    const releaseTouch = (e: PointerEvent, cancelled: boolean) => {
+      const touch = this.touches.get(e.pointerId);
+      if (e.pointerType !== 'touch' || !touch) return;
       e.preventDefault();
+      // A clean lift close to where the finger landed is a tap, not steering.
+      if (!cancelled && Math.hypot(e.clientX - touch.startX, e.clientY - touch.startY) <= TAP_SLOP) {
+        this.tapped = true;
+      }
       this.touches.delete(e.pointerId);
       if (e.pointerId !== this.primaryTouch) return;
       const next = this.touches.entries().next();
@@ -95,8 +107,8 @@ export class Input {
         this.mouseY = next.value[1].y;
       }
     };
-    window.addEventListener('pointerup', releaseTouch, { passive: false });
-    window.addEventListener('pointercancel', releaseTouch, { passive: false });
+    window.addEventListener('pointerup', (e) => releaseTouch(e, false), { passive: false });
+    window.addEventListener('pointercancel', (e) => releaseTouch(e, true), { passive: false });
   }
 
   get thrust(): boolean {
@@ -128,6 +140,17 @@ export class Input {
     return false;
   }
 
+  /**
+   * Edge-triggered: returns true once for a finger that tapped the playfield
+   * (down and up in the same spot) since the last frame. Buttons swallow their
+   * own touches, so this only fires for taps on the game itself.
+   */
+  consumeTap(): boolean {
+    if (!this.tapped) return false;
+    this.tapped = false;
+    return true;
+  }
+
   /** Edge-triggered: returns true once per physical key press. */
   justPressed(code: string): boolean {
     if (this.just.has(code)) {
@@ -139,5 +162,7 @@ export class Input {
 
   endFrame(): void {
     this.just.clear();
+    // An unconsumed tap must not linger into a later frame and fire there.
+    this.tapped = false;
   }
 }
