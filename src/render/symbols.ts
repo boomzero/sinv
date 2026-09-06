@@ -13,10 +13,15 @@ export const OBJECT_INFO: Record<SymbolKind, { color: string; name: string; mean
   whitehole: { color: '#d4f4ff', name: 'WHITE HOLE', meaning: 'Pushes you away — use its edge for speed' },
 };
 
-/** One visual vocabulary for in-flight pickups, map markers and the legend. */
-export function drawSymbol(ctx: CanvasRenderingContext2D, kind: SymbolKind, x: number, y: number, radius: number): void {
+/**
+ * One visual vocabulary for in-flight pickups, map markers and the legend.
+ * `rotation` (radians) orients directional symbols such as the hunter dart,
+ * whose nose points along +x when unrotated.
+ */
+export function drawSymbol(ctx: CanvasRenderingContext2D, kind: SymbolKind, x: number, y: number, radius: number, rotation = 0): void {
   ctx.save();
   ctx.translate(x, y);
+  if (rotation) ctx.rotate(rotation);
   const { color } = OBJECT_INFO[kind];
   ctx.strokeStyle = color;
   ctx.fillStyle = `${color}30`;
