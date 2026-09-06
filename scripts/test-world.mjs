@@ -302,6 +302,24 @@ try {
   document.hidden = true; document.dispatchEvent(new Event('visibilitychange')); document.hidden = false;
   assert.equal(game.state, 'paused'); assert.equal(game.input.thrust, false); assert.equal(game.input.mouseDown, false);
 
+  // Direct touch steers and thrusts independently of the saved mouse option;
+  // a second contact acts as boost and cancellation clears the held state.
+  const pointer = (type, pointerId, x, y) => {
+    const event = new Event(type, { cancelable: true });
+    Object.assign(event, { pointerType: 'touch', pointerId, clientX: x, clientY: y });
+    window.dispatchEvent(event);
+  };
+  game.reset(42); game.state = 'playing'; game.mouseSteer = false;
+  game.viewW = 800; game.viewH = 600;
+  pointer('pointerdown', 1, 700, 300); game.fixedUpdate(1 / 60);
+  assert.equal(game.input.touchActive, true); assert.equal(game.playerFrame.thrusting, true);
+  pointer('pointerdown', 2, 100, 100); game.fixedUpdate(1 / 60);
+  assert.equal(game.playerFrame.boosting, true);
+  pointer('pointerup', 1, 700, 300);
+  assert.equal(game.input.touchActive, true, 'remaining touch becomes the steering contact');
+  pointer('pointercancel', 2, 100, 100); game.fixedUpdate(1 / 60);
+  assert.equal(game.input.touchActive, false); assert.equal(game.playerFrame.thrusting, false);
+
   // The scripted hunter contact impulse must not cancel material density.
   const shoveSpeeds = {};
   for (const composition of ['rock', 'ice']) {

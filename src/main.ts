@@ -24,23 +24,49 @@ async function boot(): Promise<void> {
 
   const mapButton = document.getElementById('map-button') as HTMLButtonElement;
   const launchButton = document.getElementById('launch-button') as HTMLButtonElement;
+  const pauseButton = document.getElementById('pause-button') as HTMLButtonElement;
+  const retryButton = document.getElementById('retry-button') as HTMLButtonElement;
+  const difficultyControls = document.getElementById('difficulty-controls') as HTMLDivElement;
+  const difficultyButtons = Array.from(
+    difficultyControls.querySelectorAll<HTMLButtonElement>('button'),
+  );
   mapButton.addEventListener('click', () => { game.toggleChart(); mapButton.blur(); });
   launchButton.addEventListener('click', () => { game.launch(); launchButton.blur(); });
+  pauseButton.addEventListener('click', () => { game.togglePause(); pauseButton.blur(); });
+  retryButton.addEventListener('click', () => { game.restart(); retryButton.blur(); });
+  difficultyButtons.forEach((button, index) => {
+    button.addEventListener('click', () => {
+      game.selectDifficulty(index);
+      button.blur();
+    });
+  });
   let uiState = '';
   function syncControls(): void {
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    const key = `${game.state}:${game.chartOpen}:${game.mapH}:${w}:${h}`;
+    const key = `${game.state}:${game.chartOpen}:${game.difficultyIndex}:${game.mapH}:${w}:${h}`;
     if (key === uiState) return;
     uiState = key;
     const scale = Math.min(1, w / 900, h / 620);
+    const buttonScale = game.input.touchCapable ? 1 : scale;
     mapButton.hidden = game.state === 'gameover' || game.state === 'win';
     mapButton.innerHTML = game.chartOpen ? 'Close map <small>Esc</small>' : 'Map &amp; legend <small>Tab</small>';
     mapButton.setAttribute('aria-expanded', String(game.chartOpen));
     mapButton.style.top = `${game.chartOpen || game.state === 'menu' ? 16 : (28 + 170 * game.mapH / game.mapW) * scale}px`;
-    mapButton.style.transform = `scale(${scale})`;
+    mapButton.style.transform = `scale(${buttonScale})`;
     launchButton.hidden = game.state !== 'menu' || game.chartOpen;
-    launchButton.style.top = `${h / 2 + 227 * scale}px`;
-    launchButton.style.transform = `translateX(-50%) scale(${scale})`;
+    launchButton.style.top = `${game.input.touchCapable ? h / 2 + 125 * scale + 54 : h / 2 + 227 * scale}px`;
+    launchButton.style.transform = `translateX(-50%) scale(${buttonScale})`;
+    pauseButton.hidden = (game.state !== 'playing' && game.state !== 'paused') || game.chartOpen;
+    pauseButton.textContent = game.state === 'paused' ? 'Resume' : 'Pause';
+    retryButton.hidden = game.state !== 'gameover' && game.state !== 'win';
+    retryButton.style.top = `${h / 2 + (game.state === 'win' ? 166 : 142) * scale}px`;
+    retryButton.style.transform = `translateX(-50%) scale(${buttonScale})`;
+    difficultyControls.hidden =
+      !game.input.touchCapable || game.state !== 'menu' || game.chartOpen;
+    difficultyControls.style.top = `${h / 2 + 125 * scale}px`;
+    difficultyButtons.forEach((button, index) => {
+      button.setAttribute('aria-pressed', String(index === game.difficultyIndex));
+    });
   }
 
   let last = performance.now();

@@ -118,6 +118,26 @@ export class Game {
     this.input.clearHeld();
     this.camera.snapTo(this.playerSpawn.x, this.playerSpawn.y);
   }
+
+  togglePause(): void {
+    if (this.state !== 'playing' && this.state !== 'paused') return;
+    this.state = this.state === 'playing' ? 'paused' : 'playing';
+    this.chartOpen = false;
+    this.input.clearHeld();
+  }
+
+  restart(): void {
+    const wasMenu = this.state === 'menu';
+    this.reset((Math.random() * 2 ** 31) | 0);
+    this.state = wasMenu ? 'menu' : 'playing';
+  }
+
+  selectDifficulty(index: number): void {
+    if (this.state !== 'menu' || index === this.difficultyIndex || !DIFFICULTIES[index]) return;
+    this.difficultyIndex = index;
+    writeSaved('sinv-diff', String(index));
+    this.reset(this.seed);
+  }
   lossReason: LossReason = 'caught';
   mouseSteer = readSaved('sinv-mouse') === '1';
   debugDraw = false;
@@ -273,17 +293,13 @@ export class Game {
     if (this.input.justPressed('Tab')) this.toggleChart();
     if (this.state === 'menu' && this.chartOpen && this.input.justPressed('Escape')) this.toggleChart();
     if (this.input.justPressed('KeyR')) {
-      const wasMenu = this.state === 'menu';
-      this.reset((Math.random() * 2 ** 31) | 0);
-      this.state = wasMenu ? 'menu' : 'playing';
+      this.restart();
     }
     if (
       (this.input.justPressed('KeyP') || this.input.justPressed('Escape')) &&
       (this.state === 'playing' || this.state === 'paused')
     ) {
-      this.state = this.state === 'playing' ? 'paused' : 'playing';
-      this.chartOpen = false;
-      this.input.clearHeld();
+      this.togglePause();
     }
     if (this.state === 'paused') {
       // Full freeze: no physics, no AI, no particles — only the overlay pulses
@@ -293,11 +309,7 @@ export class Game {
     if (this.state === 'menu') {
       // Difficulty selection rebuilds the map (asteroid density changes)
       for (let d = 0; d < DIFFICULTIES.length; d++) {
-        if (this.input.justPressed(`Digit${d + 1}`) && d !== this.difficultyIndex) {
-          this.difficultyIndex = d;
-          writeSaved('sinv-diff', String(d));
-          this.reset(this.seed);
-        }
+        if (this.input.justPressed(`Digit${d + 1}`)) this.selectDifficulty(d);
       }
       if (this.input.justPressed('Enter')) {
         this.launch();
@@ -312,7 +324,7 @@ export class Game {
     if (this.state === 'playing') {
       this.playT += dt;
       let aimAngle: number | null = null;
-      if (this.mouseSteer && this.viewW > 0) {
+      if ((this.mouseSteer || this.input.touchActive) && this.viewW > 0) {
         const wx = this.input.mouseX - this.viewW / 2 + this.camera.x;
         const wy = this.input.mouseY - this.viewH / 2 + this.camera.y;
         const pp = this.player.body.translation();

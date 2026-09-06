@@ -17,6 +17,8 @@
         display: block;
         width: 100vw;
         height: 100vh;
+        touch-action: none;
+        user-select: none;
       }
       .game-button {
         position: fixed;
@@ -35,6 +37,34 @@
       .game-button small { color: #a5c4ce; font-size: 11px; font-weight: normal; }
       #map-button { right: 16px; top: 16px; transform-origin: top right; }
       #launch-button { left: 50%; transform-origin: top center; background: #174439; border-color: #76f0a6; }
+      #pause-button { right: 16px; bottom: 16px; transform-origin: bottom right; }
+      #retry-button { left: 50%; transform-origin: top center; background: #174439; border-color: #76f0a6; }
+      #difficulty-controls {
+        position: fixed;
+        z-index: 2;
+        left: 50%;
+        display: flex;
+        gap: 4px;
+        transform: translateX(-50%);
+      }
+      .difficulty-button {
+        min-width: 64px;
+        min-height: 44px;
+        border: 1px solid #527281;
+        border-radius: 7px;
+        background: #10202a;
+        color: #9fb5c0;
+        padding: 8px;
+        font: bold 12px ui-monospace, monospace;
+      }
+      .difficulty-button[aria-pressed="true"] {
+        border-color: #ffd24a;
+        color: #ffd24a;
+        background: #332b16;
+      }
+      @media (pointer: coarse) {
+        .game-button { min-width: 44px; min-height: 44px; }
+      }
       [hidden] { display: none !important; }
     </style>
   </head>
@@ -42,6 +72,14 @@
     <canvas id="game" aria-label="Space scavenger game"></canvas>
     <button id="map-button" class="game-button" type="button" aria-controls="game" aria-expanded="false">Map &amp; legend <small>Tab</small></button>
     <button id="launch-button" class="game-button" type="button" hidden>Launch <small>Enter</small></button>
+    <button id="pause-button" class="game-button" type="button" hidden>Pause</button>
+    <button id="retry-button" class="game-button" type="button" hidden>Fly again</button>
+    <div id="difficulty-controls" aria-label="Difficulty" hidden>
+      <button class="difficulty-button" type="button">Easy</button>
+      <button class="difficulty-button" type="button">Normal</button>
+      <button class="difficulty-button" type="button">Hard</button>
+      <button class="difficulty-button" type="button">Extreme</button>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -73,7 +73,7 @@ export function updatePlayer(
   }
   body.resetForces(true);
 
-  const thrusting = input.thrust || (aimAngle !== null && input.mouseDown);
+  const thrusting = input.thrust || (aimAngle !== null && (input.mouseDown || input.touchActive));
   const boosting = input.boost && thrusting && (cheats || player.boostFuel > 0);
   if (cheats) {
     // Infinite boost: the tank never empties.

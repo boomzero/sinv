@@ -11,6 +11,8 @@ npm run dev
 
 Click Launch or press Enter. W/A/S/D fly, Space boosts, M toggles mouse steering, P or Escape pauses, and R starts a new sector. **Map & legend** is a visible button before launch and below the minimap during flight. It opens the chart and object guide and pauses flight; click Close map to return. Tab and Escape are optional shortcuts. The chart is also available before launch.
 
+On a touch screen, choose a difficulty with the on-screen selector, then hold a finger anywhere on the playfield to steer toward it and fly. Hold a second finger to boost. Touch controls retain full-size tap targets even when the game HUD scales down for a phone-sized viewport.
+
 ## Scripts to try
 
 Run terminal commands from the project folder.

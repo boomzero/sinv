@@ -278,33 +278,35 @@ export function drawOverlay(
     ctx.fillText('Fly into cyan diamonds to collect them. Avoid the red hunter.', sw / 2, cy - 34);
     ctx.fillText('Station walls and rocks are solid. Fly through their gaps.', sw / 2, cy - 9);
     ctx.fillStyle = '#d8e8f0'; ctx.font = `bold 16px ${FONT}`;
-    ctx.fillText(game.mouseSteer ? 'Aim with mouse     Hold click to fly     SPACE  boost' : 'W  fly forward     A / D  turn     SPACE  boost', sw / 2, cy + 43);
+    ctx.fillText(game.input.touchCapable ? 'Touch and hold to steer + fly     Second finger boosts' : game.mouseSteer ? 'Aim with mouse     Hold click to fly     SPACE  boost' : 'W  fly forward     A / D  turn     SPACE  boost', sw / 2, cy + 43);
     ctx.fillStyle = '#96acb9'; ctx.font = `13px ${FONT}`;
-    ctx.fillText(`S  reverse   ·   P  pause   ·   M  mouse steering (${game.mouseSteer ? 'ON' : 'OFF'})`, sw / 2, cy + 73);
+    ctx.fillText(game.input.touchCapable ? 'Use the Pause and Map buttons during flight' : `S  reverse   ·   P  pause   ·   M  mouse steering (${game.mouseSteer ? 'ON' : 'OFF'})`, sw / 2, cy + 73);
     ctx.fillStyle = '#8ed2df';
     ctx.fillText('Use “Map & legend” for the map and object meanings.', sw / 2, cy + 117);
 
-    // Difficulty selector: [1] EASY  [2] NORMAL  [3] HARD
-    ctx.font = `bold 16px ${FONT}`;
-    const labels = DIFFICULTIES.map((d, i) => `[${i + 1}] ${d.name}`);
-    const gap = 44;
-    const widths = labels.map((s) => ctx.measureText(s).width);
-    const total = widths.reduce((a, b) => a + b, 0) + gap * (labels.length - 1);
-    let x = sw / 2 - total / 2;
-    labels.forEach((label, i) => {
-      const selected = i === game.difficultyIndex;
-      ctx.textAlign = 'left';
-      ctx.fillStyle = selected ? '#ffd24a' : 'rgba(232,244,255,0.4)';
-      ctx.fillText(label, x, cy + 166);
-      if (selected) {
-        ctx.fillRect(x, cy + 178, widths[i], 2);
-      }
-      x += widths[i] + gap;
-    });
-    ctx.textAlign = 'center';
-    ctx.font = `12px ${FONT}`;
-    ctx.fillStyle = 'rgba(232,244,255,0.45)';
-    ctx.fillText(game.difficulty.blurb, sw / 2, cy + 200);
+    if (!game.input.touchCapable) {
+      // Difficulty selector: [1] EASY  [2] NORMAL  [3] HARD  [4] EXTREME
+      ctx.font = `bold 16px ${FONT}`;
+      const labels = DIFFICULTIES.map((d, i) => `[${i + 1}] ${d.name}`);
+      const gap = 44;
+      const widths = labels.map((s) => ctx.measureText(s).width);
+      const total = widths.reduce((a, b) => a + b, 0) + gap * (labels.length - 1);
+      let x = sw / 2 - total / 2;
+      labels.forEach((label, i) => {
+        const selected = i === game.difficultyIndex;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = selected ? '#ffd24a' : 'rgba(232,244,255,0.4)';
+        ctx.fillText(label, x, cy + 166);
+        if (selected) {
+          ctx.fillRect(x, cy + 178, widths[i], 2);
+        }
+        x += widths[i] + gap;
+      });
+      ctx.textAlign = 'center';
+      ctx.font = `12px ${FONT}`;
+      ctx.fillStyle = 'rgba(232,244,255,0.45)';
+      ctx.fillText(game.difficulty.blurb, sw / 2, cy + 200);
+    }
 
     ctx.font = `bold 20px ${FONT}`;
     ctx.fillStyle = `rgba(93,255,138,${0.6 + 0.4 * Math.sin(game.time * 4)})`;
