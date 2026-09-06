@@ -56,6 +56,16 @@ export function createHunter(ctx: PhysicsContext, x: number, y: number): Hunter 
   return hunter;
 }
 
+/**
+ * Facing used by every hunter marker: the ship noses along its velocity, and
+ * idles with a slow spin when it's barely moving. The world icon and the
+ * chart/minimap symbol share this so they never disagree.
+ */
+export function hunterHeading(hunter: Hunter, time: number): number {
+  const vel = hunter.body.linvel();
+  return Math.hypot(vel.x, vel.y) > 5 ? Math.atan2(vel.y, vel.x) : time * 0.3;
+}
+
 export function hunterMaxSpeed(
   playTime: number,
   orbsCollected: number,

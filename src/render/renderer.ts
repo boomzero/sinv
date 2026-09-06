@@ -16,6 +16,7 @@ import {
   HUNTER_LUNGE_PERIOD,
 } from '../constants';
 import { GATE_RADIUS } from '../entities/pickup';
+import { hunterHeading } from '../entities/hunter';
 
 // --- Pre-rendered glow sprites for pickups (shadowBlur is expensive live) ---
 
@@ -327,9 +328,7 @@ function drawHunter(ctx: CanvasRenderingContext2D, game: Game, hunter: Hunter): 
     }
     return;
   }
-  const vel = hunter.body.linvel();
-  const speed = Math.hypot(vel.x, vel.y);
-  const angle = speed > 5 ? Math.atan2(vel.y, vel.x) : game.time * 0.3;
+  const angle = hunterHeading(hunter, game.time);
   const warming =
     game.state === 'playing' && game.playT < game.difficulty.hunterWarmup;
   const stunned = game.playT < hunter.stunnedUntil;

@@ -1,6 +1,7 @@
 import type { Game } from '../game';
 import { drawSymbol, OBJECT_INFO, type SymbolKind } from './symbols';
 import { drawLandmark } from './landmarks';
+import { hunterHeading } from '../entities/hunter';
 
 /** The chart and minimap share geometry, colors and object symbols. */
 export function drawSectorMap(ctx: CanvasRenderingContext2D, game: Game, zoom: number, compact = false): void {
@@ -61,7 +62,7 @@ export function drawSectorMap(ctx: CanvasRenderingContext2D, game: Game, zoom: n
   for (const hunter of game.hunters) {
     if (game.respawning(hunter)) continue;
     const p = hunter.body.translation();
-    drawSymbol(ctx, 'hunter', p.x * zoom, p.y * zoom, compact ? 4 : 7);
+    drawSymbol(ctx, 'hunter', p.x * zoom, p.y * zoom, compact ? 4 : 7, hunterHeading(hunter, game.time));
   }
   ctx.restore();
 }
