@@ -329,7 +329,9 @@ export class Game {
     if (this.state === 'playing') {
       this.playT += dt;
       let aimAngle: number | null = null;
-      if ((this.mouseSteer || this.input.touchActive) && this.viewW > 0) {
+      if (this.input.fixedJoystick && this.input.touchActive) {
+        aimAngle = this.input.joystickAngle;
+      } else if ((this.mouseSteer || (!this.input.fixedJoystick && this.input.touchActive)) && this.viewW > 0) {
         const wx = this.input.mouseX - this.viewW / 2 + this.camera.x;
         const wy = this.input.mouseY - this.viewH / 2 + this.camera.y;
         const pp = this.player.body.translation();

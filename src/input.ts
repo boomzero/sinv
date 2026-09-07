@@ -1,3 +1,5 @@
+import { readSaved, writeSaved } from './util/storage';
+
 /** Max travel between a finger landing and lifting for the gesture to count as a tap. */
 const TAP_SLOP = 24;
 
@@ -16,8 +18,31 @@ export class Input {
   private primaryTouch: number | null = null;
   private tapped = false;
 
+  fixedJoystick = readSaved('sinv-fixed-joystick') === '1';
+  joystickBounds: { x: number; y: number; radius: number } | null = null;
+
+  setFixedJoystick(enabled: boolean): void {
+    this.clearHeld();
+    this.fixedJoystick = enabled;
+    writeSaved('sinv-fixed-joystick', enabled ? '1' : '0');
+  }
+
+  get joystickOffset(): { x: number; y: number } {
+    const touch = this.primaryTouch === null ? null : this.touches.get(this.primaryTouch);
+    const bounds = this.joystickBounds;
+    if (!touch || !bounds) return { x: 0, y: 0 };
+    const dx = touch.x - bounds.x, dy = touch.y - bounds.y;
+    const scale = Math.min(1, bounds.radius / (Math.hypot(dx, dy) || 1));
+    return { x: dx * scale, y: dy * scale };
+  }
+
+  get joystickAngle(): number | null {
+    const { x, y } = this.joystickOffset;
+    return Math.hypot(x, y) > 10 ? Math.atan2(y, x) : null;
+  }
+
   get touchActive(): boolean {
-    return this.primaryTouch !== null;
+    return this.primaryTouch !== null && (!this.fixedJoystick || this.joystickAngle !== null);
   }
 
   clearHeld(): void {
@@ -71,7 +96,9 @@ export class Input {
       if (e.target instanceof Element && e.target.closest('button')) return;
       e.preventDefault();
       this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY });
-      if (this.primaryTouch === null) {
+      const bounds = this.joystickBounds;
+      const onStick = bounds && Math.hypot(e.clientX - bounds.x, e.clientY - bounds.y) <= bounds.radius;
+      if (this.primaryTouch === null && (!this.fixedJoystick || onStick)) {
         this.primaryTouch = e.pointerId;
         this.mouseX = e.clientX;
         this.mouseY = e.clientY;
@@ -98,6 +125,10 @@ export class Input {
       }
       this.touches.delete(e.pointerId);
       if (e.pointerId !== this.primaryTouch) return;
+      if (this.fixedJoystick) {
+        this.primaryTouch = null;
+        return;
+      }
       const next = this.touches.entries().next();
       if (next.done) {
         this.primaryTouch = null;
@@ -124,7 +155,7 @@ export class Input {
     return t;
   }
   get boost(): boolean {
-    return this.down.has('Space') || this.down.has('ShiftLeft') || this.touches.size > 1;
+    return this.down.has('Space') || this.down.has('ShiftLeft') || (this.touches.size > 1 && this.primaryTouch !== null);
   }
 
   /**

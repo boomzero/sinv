@@ -343,6 +343,39 @@ try {
   assert.equal(game.state, 'paused', 'the chart stays open until the player closes the map');
   key('Tab'); assert.equal(game.state, 'playing');
 
+  // Fixed steering uses the stick center, independent of ship/camera position.
+  game.input.setFixedJoystick(true);
+  assert.equal(saved.get('sinv-fixed-joystick'), '1');
+  game.input.joystickBounds = { x: 84, y: 516, radius: 60 };
+  pointer('pointerdown', 3, 700, 300);
+  game.fixedUpdate(1 / 60);
+  assert.equal(game.playerFrame.thrusting, false, 'off-stick touch cannot steer');
+  pointer('pointerdown', 4, 84, 516);
+  game.fixedUpdate(1 / 60);
+  assert.equal(game.playerFrame.thrusting, false, 'stick center is a dead zone');
+  pointer('pointermove', 4, 84, 400);
+  assert.equal(game.input.joystickAngle, -Math.PI / 2);
+  assert.ok(Math.abs(game.input.joystickOffset.y + 60) < 1e-9, 'stick travel is clamped');
+  game.fixedUpdate(1 / 60);
+  assert.equal(game.playerFrame.thrusting, true);
+  assert.equal(game.playerFrame.boosting, true, 'other finger boosts stick steering');
+  pointer('pointercancel', 4, 84, 400);
+  game.fixedUpdate(1 / 60);
+  assert.equal(game.playerFrame.thrusting, false, 'boost finger cannot take over the stick');
+  pointer('pointerup', 3, 700, 300);
+  pointer('pointerdown', 5, 120, 516);
+  game.fixedUpdate(1 / 60);
+  assert.equal(game.playerFrame.thrusting, true);
+  pointer('pointermove', 5, 88, 516);
+  game.fixedUpdate(1 / 60);
+  assert.equal(game.playerFrame.thrusting, false, 'returning to center stops thrust');
+  pointer('pointermove', 5, 120, 516);
+  game.togglePause();
+  assert.equal(game.input.touchActive, false, 'pause releases the joystick');
+  game.togglePause();
+  game.input.setFixedJoystick(false);
+  assert.equal(saved.get('sinv-fixed-joystick'), '0');
+
   // The scripted hunter contact impulse must not cancel material density.
   const shoveSpeeds = {};
   for (const composition of ['rock', 'ice']) {

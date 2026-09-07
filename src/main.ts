@@ -40,12 +40,31 @@ async function boot(): Promise<void> {
       button.blur();
     });
   });
+  const joystickOption = document.getElementById('joystick-option') as HTMLButtonElement;
+  const joystick = document.getElementById('joystick') as HTMLDivElement;
+  const joystickKnob = document.getElementById('joystick-knob') as HTMLDivElement;
+  joystickOption.addEventListener('click', () => {
+    game.input.setFixedJoystick(!game.input.fixedJoystick);
+    joystickOption.blur();
+  });
   let uiState = '';
   function syncControls(): void {
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    const key = `${game.state}:${game.chartOpen}:${game.difficultyIndex}:${game.mapH}:${w}:${h}`;
+    const key = `${game.input.fixedJoystick}:${game.state}:${game.chartOpen}:${game.difficultyIndex}:${game.mapH}:${w}:${h}`;
     if (key === uiState) return;
     uiState = key;
+    joystickOption.hidden = !game.input.touchCapable || game.chartOpen ||
+      (game.state !== 'menu' && game.state !== 'paused');
+    joystickOption.textContent = `Fixed joystick: ${game.input.fixedJoystick ? 'On' : 'Off'}`;
+    joystickOption.setAttribute('aria-pressed', String(game.input.fixedJoystick));
+    joystick.hidden = !game.input.touchCapable || !game.input.fixedJoystick ||
+      game.state !== 'playing' || game.chartOpen;
+    if (joystick.hidden) {
+      game.input.joystickBounds = null;
+    } else {
+      const bounds = joystick.getBoundingClientRect();
+      game.input.joystickBounds = { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2, radius: bounds.width / 2 };
+    }
     const scale = Math.min(1, w / 900, h / 620);
     const buttonScale = game.input.touchCapable ? 1 : scale;
     mapButton.hidden = game.state === 'gameover' || game.state === 'win';
@@ -83,6 +102,8 @@ async function boot(): Promise<void> {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     game.render(ctx, canvas.clientWidth, canvas.clientHeight);
     syncControls();
+    const offset = game.input.joystickOffset;
+    joystickKnob.style.transform = `translate(${offset.x * 0.65}px, ${offset.y * 0.65}px)`;
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

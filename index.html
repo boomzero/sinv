@@ -39,6 +39,31 @@
       #launch-button { left: 50%; transform-origin: top center; background: #174439; border-color: #76f0a6; }
       #pause-button { right: 16px; bottom: 16px; transform-origin: bottom right; }
       #retry-button { left: 50%; transform-origin: top center; background: #174439; border-color: #76f0a6; }
+      #joystick-option { left: 16px; bottom: 16px; min-height: 44px; }
+      #joystick-option[aria-pressed="true"] { border-color: #76f0a6; background: #174439; }
+      #joystick {
+        position: fixed;
+        left: max(24px, env(safe-area-inset-left));
+        bottom: max(24px, env(safe-area-inset-bottom));
+        width: 120px;
+        height: 120px;
+        border: 2px solid #75c9d688;
+        border-radius: 50%;
+        background: #10273388;
+        touch-action: none;
+        user-select: none;
+        pointer-events: none;
+      }
+      #joystick-knob {
+        position: absolute;
+        left: 38px;
+        top: 38px;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #a5e6ee99;
+        box-shadow: 0 0 0 1px #e5f8ff99;
+      }
       #difficulty-controls {
         position: fixed;
         z-index: 2;
@@ -74,6 +99,8 @@
     <button id="launch-button" class="game-button" type="button" hidden>Launch <small>Enter</small></button>
     <button id="pause-button" class="game-button" type="button" hidden>Pause</button>
     <button id="retry-button" class="game-button" type="button" hidden>Fly again</button>
+    <button id="joystick-option" class="game-button" type="button" aria-pressed="false" hidden>Fixed joystick: Off</button>
+    <div id="joystick" aria-hidden="true" hidden><div id="joystick-knob"></div></div>
     <div id="difficulty-controls" aria-label="Difficulty" hidden>
       <button class="difficulty-button" type="button">Easy</button>
       <button class="difficulty-button" type="button">Normal</button>

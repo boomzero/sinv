@@ -278,7 +278,7 @@ export function drawOverlay(
     ctx.fillText('Fly into cyan diamonds to collect them. Avoid the red hunter.', sw / 2, cy - 34);
     ctx.fillText('Station walls and rocks are solid. Fly through their gaps.', sw / 2, cy - 9);
     ctx.fillStyle = '#d8e8f0'; ctx.font = `bold 16px ${FONT}`;
-    ctx.fillText(game.input.touchCapable ? 'Touch and hold to steer + fly     Second finger boosts' : game.mouseSteer ? 'Aim with mouse     Hold click to fly     SPACE  boost' : 'W  fly forward     A / D  turn     SPACE  boost', sw / 2, cy + 43);
+    ctx.fillText(game.input.touchCapable ? (game.input.fixedJoystick ? 'Drag the bottom-left stick to fly     Second finger boosts' : 'Touch and hold to steer + fly     Second finger boosts') : game.mouseSteer ? 'Aim with mouse     Hold click to fly     SPACE  boost' : 'W  fly forward     A / D  turn     SPACE  boost', sw / 2, cy + 43);
     ctx.fillStyle = '#96acb9'; ctx.font = `13px ${FONT}`;
     ctx.fillText(game.input.touchCapable ? 'Use the Pause and Map buttons during flight' : `S  reverse   ·   P  pause   ·   M  mouse steering (${game.mouseSteer ? 'ON' : 'OFF'})`, sw / 2, cy + 73);
     ctx.fillStyle = '#8ed2df';
