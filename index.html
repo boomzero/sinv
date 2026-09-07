@@ -43,8 +43,8 @@
       #joystick-option[aria-pressed="true"] { border-color: #76f0a6; background: #174439; }
       #joystick {
         position: fixed;
-        left: max(24px, env(safe-area-inset-left));
-        /* Keep clear of the hull/boost HUD, which extends 64px from the bottom. */
+        right: max(24px, env(safe-area-inset-right));
+        /* Keep the stick above the bottom-right Pause button. */
         bottom: max(80px, calc(env(safe-area-inset-bottom) + 24px));
         width: 120px;
         height: 120px;
