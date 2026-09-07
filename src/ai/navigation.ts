@@ -1,5 +1,5 @@
 import { distanceToStructure, type Point, type Structure } from '../world/generate';
-import { HUNTER_RADIUS } from '../constants';
+import { HUNTER_RADIUS, PLAYER_RADIUS } from '../constants';
 
 const CELL = 36;
 const CLEARANCE = HUNTER_RADIUS + 18;
@@ -74,7 +74,7 @@ export class Navigation {
     return true;
   }
 
-  private nearestNode(p: Point): number | null {
+  private nearestNode(p: Point, margin = HUNTER_RADIUS - 0.5): number | null {
     const cx = Math.floor(p.x / CELL), cy = Math.floor(p.y / CELL);
     let best: number | null = null, distance = Infinity;
     for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
@@ -83,14 +83,17 @@ export class Navigation {
       const q = this.point(id), d = Math.hypot(p.x - q.x, p.y - q.y);
       // Permit joining a route from physical contact with a wall, but never
       // snap to a free cell on the opposite side of that wall.
-      if (d < distance && this.clearLine(p, q, HUNTER_RADIUS - 0.5)) { best = id; distance = d; }
+      if (d < distance && this.clearLine(p, q, margin)) { best = id; distance = d; }
     }
     return best;
   }
 
   findPath(start: Point, target: Point): Point[] {
     if (this.clearLine(start, target)) return [{ ...target }];
-    const from = this.nearestNode(start), to = this.nearestNode(target);
+    // The smaller player can touch a wall closer than the hunter's radius.
+    // Connect that endpoint with player clearance; the hunter catches it
+    // before its center reaches the endpoint. Interior routing stays padded.
+    const from = this.nearestNode(start), to = this.nearestNode(target, PLAYER_RADIUS - 0.5);
     if (from === null || to === null) return [];
     const costs = new Float64Array(this.blocked.length).fill(Infinity);
     const parents = new Int32Array(this.blocked.length).fill(-1);
@@ -106,8 +109,8 @@ export class Navigation {
         const route: Point[] = [];
         for (let id = to; id !== -1; id = parents[id]) route.push(this.point(id));
         route.reverse();
-        // Both endpoints are connected through the same terrain clearance
-        // checks as the route, including targets immediately beside a wall.
+        // nearestNode checked the final connection with player clearance,
+        // including targets immediately beside a wall.
         route.push({ ...target });
         const smooth: Point[] = [];
         let origin = start, index = 0;

@@ -165,6 +165,31 @@ try {
   console.log('PASS: every star layer and the nebula move exactly with terrain, including camera shake.');
 
   await RAPIER.init();
+  // A stationary target must not leave the hunter parked at an avoidance
+  // equilibrium, or make its route disappear when touching the map boundary.
+  for (const scenario of ['head-on rock', 'wall contact']) {
+    const physics = new PhysicsContext();
+    createWalls(physics, 1200, 1000);
+    const nav = new Navigation(1200, 1000, []);
+    const target = scenario === 'wall contact' ? { x: 14, y: 500 } : { x: 900, y: 500 };
+    const player = createPlayer(physics, target.x, target.y);
+    player.body.setBodyType(RAPIER.RigidBodyType.Fixed, true);
+    const hunter = createHunter(physics, 300, 500);
+    if (scenario === 'head-on rock') {
+      const rock = createAsteroid(physics, () => 0.5, 600, 500, 60, 0);
+      rock.collider.setShape(new RAPIER.Ball(60));
+    }
+    let caught = false;
+    for (let frame = 0; frame < 1200; frame++) {
+      updateHunter(hunter, player, physics, 10 + frame / 60, 0, false, DIFFICULTIES[1], [], 1 / 60, nav);
+      physics.world.step();
+      const pos = hunter.body.translation();
+      if (Math.hypot(pos.x - target.x, pos.y - target.y) < 31) { caught = true; break; }
+    }
+    assert.ok(caught, `${scenario}: hunter must catch stationary prey; final=${JSON.stringify(hunter.body.translation())}`);
+    physics.free();
+  }
+  console.log('PASS: hunters catch stationary prey past a head-on rock and at wall contact without lunges.');
   // Identical shapes and inputs isolate the two materials' physical behavior.
   const materialResults = {};
   for (const composition of ['rock', 'ice']) {

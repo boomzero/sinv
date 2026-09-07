@@ -176,9 +176,10 @@ export function updateHunter(
   // whatever rock or wall is in the way, stronger the closer it is.
   const heading = len(vel) > 30 ? norm(vel) : norm(desired);
   const ray = new RAPIER.Ray(pos, heading);
+  // Terrain beyond the prey must not repel us before we can make contact.
   const hit = ctx.world.castRayAndGetNormal(
     ray,
-    HUNTER_AVOID_DIST,
+    Math.min(HUNTER_AVOID_DIST, Math.hypot(ppos.x - pos.x, ppos.y - pos.y)),
     true,
     undefined,
     HUNTER_RAY_GROUPS,
@@ -192,6 +193,13 @@ export function updateHunter(
       obstacle?.kind === 'asteroid' && obstacle.radius < HUNTER_AVOID_MIN_RADIUS;
     if (!ramThrough && !(!direct && obstacle?.kind === 'asteroid' && obstacle.fixed)) {
       const urgency = 1 - hit.timeOfImpact / HUNTER_AVOID_DIST;
+      // A normal-only push can exactly cancel pursuit head-on. Keep a
+      // sideways component so the hunter goes around the obstacle instead
+      // of waiting for the player to move and break the equilibrium.
+      const tangent = { x: -hit.normal.y, y: hit.normal.x };
+      const side = desired.x * tangent.x + desired.y * tangent.y < 0 ? -1 : 1;
+      desired.x += tangent.x * side * maxSpeed * urgency;
+      desired.y += tangent.y * side * maxSpeed * urgency;
       desired.x += hit.normal.x * maxSpeed * 1.6 * urgency;
       desired.y += hit.normal.y * maxSpeed * 1.6 * urgency;
     }
