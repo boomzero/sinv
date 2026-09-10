@@ -1,3 +1,4 @@
+import { BARRIER_LABELS, MAX_BLASTS } from '../world/exit';
 import type { Game } from '../game';
 import type { Pickup, GravityWell, PickupType, Hunter } from '../entities/types';
 import { drawAsteroid } from './asteroids';
@@ -5,6 +6,7 @@ import { drawSymbol, OBJECT_INFO } from './symbols';
 import { drawLandmark } from './landmarks';
 import { drawStarfield } from './starfield';
 import {
+  MAGNET_RADIUS,
   PLAYER_RADIUS,
   HUNTER_RADIUS,
   WELL_CORE_RADIUS,
@@ -15,6 +17,7 @@ import {
   HUNTER_AVOID_DIST,
   HUNTER_LUNGE_PERIOD,
 } from '../constants';
+import { drawExitStructure } from './exit';
 import { GATE_RADIUS } from '../entities/pickup';
 import { hunterHeading } from '../entities/hunter';
 
@@ -45,7 +48,7 @@ function getSprites(): Record<PickupType, HTMLCanvasElement> {
     ctx.shadowBlur = 14;
     drawSymbol(ctx, type, 0, 0, 11);
   });
-  sprites = { gem: make('gem'), orb: make('orb'), shield: make('shield'), boost: make('boost') };
+  sprites = { magnet: make('magnet'), antimatter: make('antimatter'), gem: make('gem'), orb: make('orb'), shield: make('shield'), boost: make('boost') };
   return sprites;
 }
 
@@ -63,6 +66,7 @@ export function drawScene(
   game.camera.apply(ctx, w, h);
 
   drawBounds(ctx, game.time, game.mapW, game.mapH);
+  drawExitStructure(ctx, game);
   for (const well of game.wells) drawWell(ctx, well, game.time, game.debugDraw);
   for (const landmark of game.landmarks) {
     if (Math.abs(landmark.x - game.camera.x) < w / 2 + landmark.radius + 150 &&
@@ -74,7 +78,20 @@ export function drawScene(
   }
   for (const a of game.asteroids) drawAsteroid(ctx, a);
   game.particles.draw(ctx);
-  for (const hunter of game.hunters) drawHunter(ctx, game, hunter);
+  for (const hunter of game.hunters) if (hunter.body.isEnabled()) drawHunter(ctx, game, hunter);
+  if (game.magnetRemaining > 0) {
+    const pos = game.player.body.translation();
+    ctx.save(); ctx.translate(pos.x, pos.y);
+    ctx.strokeStyle = '#f48ed544'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 12]);
+    ctx.beginPath(); ctx.arc(0, 0, MAGNET_RADIUS, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 0; i < 3; i++) {
+      const t = (game.playT * 0.6 + i / 3) % 1;
+      ctx.strokeStyle = `rgba(244,142,213,${0.2 * Math.sin(t * Math.PI)})`;
+      ctx.beginPath(); ctx.arc(0, 0, MAGNET_RADIUS * (1 - t), 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
   drawPlayer(ctx, game);
 
   if (game.debugDraw) drawDebugWorld(ctx, game);
@@ -114,7 +131,15 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
   // proper whirlpool — spiral arms coiling into the drain, rotating in the same
   // sense as the tangential vortex force so the spin (and thus the slingshot
   // throw direction) reads straight off the visual.
-  if (black) {
+  if (well.exit) {
+    // Expanding rings indicate outward pressure; these fields do not slingshot.
+    for (let i = 0; i < 5; i++) {
+      const phase = (time * 0.22 + i / 5) % 1;
+      ctx.strokeStyle = `rgba(205,238,255,${0.45 * (1 - phase)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, 0, 20 + phase * (well.radius - 20), 0, Math.PI * 2); ctx.stroke();
+    }
+  } else if (black) {
     ctx.strokeStyle = 'rgba(200,130,255,0.5)';
     ctx.lineWidth = 2;
     for (let i = 0; i < 3; i++) {
@@ -181,7 +206,7 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
   ctx.shadowColor = black ? '#c873ff' : '#bfe6ff';
   ctx.shadowBlur = 20;
   ctx.beginPath();
-  ctx.arc(0, 0, 9 + 2 * Math.sin(time * 4), 0, Math.PI * 2);
+  ctx.arc(0, 0, (well.exit ? 17 : 9) + 2 * Math.sin(time * 4), 0, Math.PI * 2);
   ctx.fill();
   }
   ctx.shadowBlur = 0;
@@ -190,66 +215,35 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
 
 function drawGate(ctx: CanvasRenderingContext2D, game: Game): void {
   const gate = game.gate;
-  const time = game.time;
   ctx.save();
   ctx.translate(gate.x, gate.y);
-  const pulse = gate.active ? 1 + 0.08 * Math.sin(time * 5) : 1;
-  ctx.scale(pulse, pulse);
-
-  if (gate.active) {
-    ctx.strokeStyle = '#5dff8a';
-    ctx.fillStyle = 'rgba(93,255,138,0.12)';
-    ctx.shadowColor = '#5dff8a';
-    ctx.shadowBlur = 24;
-    ctx.lineWidth = 3.5;
-  } else {
-    ctx.strokeStyle = 'rgba(140,150,160,0.45)';
-    ctx.fillStyle = 'rgba(140,150,160,0.05)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([8, 8]);
-  }
+  // The destination is always lit. The actual barrier, not color, blocks it.
+  ctx.strokeStyle = '#76f0a6'; ctx.fillStyle = '#76f0a620';
+  ctx.shadowColor = '#76f0a6'; ctx.shadowBlur = 18; ctx.lineWidth = 3;
   ctx.beginPath();
   for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + time * (gate.active ? 0.5 : 0.1);
-    const x = Math.cos(a) * GATE_RADIUS;
-    const y = Math.sin(a) * GATE_RADIUS;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+    const a = i * Math.PI / 3 + game.time * 0.2;
+    if (i === 0) ctx.moveTo(Math.cos(a) * GATE_RADIUS, Math.sin(a) * GATE_RADIUS);
+    else ctx.lineTo(Math.cos(a) * GATE_RADIUS, Math.sin(a) * GATE_RADIUS);
   }
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
+  ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+  ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#a8ffc3';
+  ctx.fillText('EXIT', 0, 4); ctx.restore();
 
-  ctx.setLineDash([]);
-  ctx.font = 'bold 12px monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = gate.active ? '#5dff8a' : 'rgba(140,150,160,0.6)';
-  ctx.fillText(gate.active ? 'EXIT' : 'LOCKED', 0, 0);
-  ctx.restore();
-
-  // Hint when flying near the locked gate: explain what unlocks it
-  if (!gate.active && game.player.alive) {
-    const pp = game.player.body.translation();
-    const dist = Math.hypot(pp.x - gate.x, pp.y - gate.y);
-    if (dist < 420) {
-      const fade = Math.min(1, (420 - dist) / 120);
-      const left = game.gemCount - game.gemsCollected;
-      ctx.save();
-      ctx.font = 'bold 14px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = `rgba(140,220,170,${0.85 * fade})`;
-      ctx.fillText(
-        left === game.gemCount
-          ? `EXIT GATE — COLLECT ANY ${game.gemCount} GEMS TO UNLOCK`
-          : `EXIT GATE — ${left} GEM${left === 1 ? '' : 'S'} REMAINING`,
-        gate.x,
-        gate.y - GATE_RADIUS - 28,
-      );
-      ctx.restore();
-    }
+  const b = gate.layout.barrier, p = game.player.body.translation();
+  if (Math.hypot(p.x - b.x, p.y - b.y) < 650) {
+    ctx.save(); ctx.textAlign = 'center'; ctx.font = 'bold 13px monospace';
+    ctx.fillStyle = '#ffce99';
+    ctx.fillText(BARRIER_LABELS[gate.blasts], b.x - 90, b.y - 240);
+    ctx.font = '12px monospace'; ctx.fillStyle = '#c0d9e1';
+    ctx.fillText(!gate.active ? `${3 - gate.blasts} more charge${gate.blasts === 2 ? '' : 's'} to cut through` : gate.blasts < MAX_BLASTS ? 'More charges clear the shoulders' : 'Hold boost against the white holes', b.x - 90, b.y - 219);
+    const gemsLeft = Math.max(0, game.escapeGemTarget - game.thrustGems);
+    ctx.fillStyle = gemsLeft > 0 ? '#ffd078' : '#5dff8a';
+    ctx.font = 'bold 13px monospace';
+    ctx.fillText(gemsLeft > 0 ? `LOW THRUST · ${gemsLeft} MORE GEMS RECOMMENDED` : 'ENGINE READY · HOLD BOOST', b.x + 380, b.y - 240);
+    ctx.font = '12px monospace'; ctx.fillStyle = '#c0d9e1';
+    ctx.fillText(`White holes repel you · target ${game.escapeGemTarget} gem power + boost`, b.x + 380, b.y - 219);
+    ctx.restore();
   }
 }
 
@@ -281,10 +275,14 @@ function drawPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.save();
   ctx.translate(pos.x, pos.y);
 
-  if (player.shield) {
+  if (player.shield || game.shieldRemaining > 0) {
     ctx.strokeStyle = `rgba(102,153,255,${0.55 + 0.25 * Math.sin(game.time * 6)})`;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = game.shieldRemaining > 0 ? 5 : 2.5;
     ctx.shadowColor = '#6699ff';
+    if (game.shieldRemaining > 0) {
+      ctx.fillStyle = `rgba(140,190,255,${0.12 + 0.08 * Math.sin(game.playT * 18)})`;
+      ctx.beginPath(); ctx.arc(0, 0, PLAYER_RADIUS + 12, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.shadowBlur = 12;
     ctx.beginPath();
     ctx.arc(0, 0, PLAYER_RADIUS + 9, 0, Math.PI * 2);
@@ -514,7 +512,7 @@ function drawDebugWorld(ctx: CanvasRenderingContext2D, game: Game): void {
   }
 
   for (const hunter of game.hunters) {
-    if (game.respawning(hunter)) continue;
+    if (!hunter.body.isEnabled() || game.respawning(hunter)) continue;
     const hp = hunter.body.translation();
     const hv = hunter.body.linvel();
     const spd = Math.hypot(hv.x, hv.y);

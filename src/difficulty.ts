@@ -9,8 +9,11 @@ export interface Difficulty {
   hunterWarmup: number;
   /** Number of asteroids littering the map. */
   asteroidCount: number;
-  /** Gems needed to unlock the exit gate. */
+  /** Recommended gems for boosted exit passage; also sizes the resource budget. */
   gemCount: number;
+  escapeGems?: number;
+  /** Time-based acceleration scaling; starting speed is unchanged. */
+  hunterEscalationMult?: number;
   /** Multiplier applied to all score gains. */
   scoreMultiplier: number;
   /** How many hunters stalk the map. */
@@ -35,6 +38,8 @@ export const DIFFICULTIES: Difficulty[] = [
   },
   {
     name: 'NORMAL',
+    escapeGems: 54,
+    hunterEscalationMult: 0.8,
     hunterSpeedMult: 1,
     hunterWarmup: HUNTER_WARMUP,
     asteroidCount: ASTEROID_COUNT,

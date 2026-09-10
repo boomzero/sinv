@@ -1,3 +1,5 @@
+import { BARRIER_LABELS } from '../world/exit';
+import { drawExitStructure } from './exit';
 import type { Game } from '../game';
 import { drawSymbol, OBJECT_INFO, type SymbolKind } from './symbols';
 import { drawLandmark } from './landmarks';
@@ -31,6 +33,7 @@ export function drawSectorMap(ctx: CanvasRenderingContext2D, game: Game, zoom: n
     ctx.closePath(); ctx.fill(); ctx.restore();
   }
   for (const l of game.landmarks) drawLandmark(ctx, l, game.time, false);
+  drawExitStructure(ctx, game, true);
   for (const well of game.wells) {
     ctx.fillStyle = well.polarity === 1 ? '#a866e733' : '#bef7ff33';
     ctx.strokeStyle = well.polarity === 1 ? '#ac76e5' : '#b6e6ef';
@@ -41,7 +44,9 @@ export function drawSectorMap(ctx: CanvasRenderingContext2D, game: Game, zoom: n
   ctx.restore();
   for (const p of game.pickups) {
     if (p.taken) continue;
-    drawSymbol(ctx, p.type, p.x * zoom, p.y * zoom, compact ? (p.bonus ? 2.5 : 1.8) : (p.bonus ? 5.5 : 4.5));
+    const capsule = p.type === 'antimatter' || p.type === 'magnet';
+    const radius = compact ? (capsule ? 3.5 : p.bonus ? 2.5 : 1.8) : (capsule ? 6 : p.bonus ? 5.5 : 4.5);
+    drawSymbol(ctx, p.type, p.x * zoom, p.y * zoom, radius);
   }
   game.landmarks.forEach((l, i) => {
     const x = l.x * zoom, y = (l.y - l.radius) * zoom;
@@ -54,13 +59,13 @@ export function drawSectorMap(ctx: CanvasRenderingContext2D, game: Game, zoom: n
   ctx.fillStyle = '#fff';
   ctx.beginPath(); ctx.arc(pp.x * zoom, pp.y * zoom, compact ? 2.5 : 4, 0, Math.PI * 2); ctx.fill();
   ctx.textAlign = 'left'; ctx.font = '10px monospace'; if (!compact) ctx.fillText('YOU', pp.x * zoom + 9, pp.y * zoom + 4);
-  ctx.fillStyle = game.gate.active ? '#76f0a6' : '#9eacb8';
+  ctx.fillStyle = '#76f0a6';
   ctx.strokeStyle = ctx.fillStyle;
-  ctx.save(); ctx.globalAlpha = game.gate.active ? 1 : 0.5;
+  ctx.save(); ctx.globalAlpha = 1;
   drawSymbol(ctx, 'gate', game.gate.x * zoom, game.gate.y * zoom, compact ? 4 : 7); ctx.restore();
-  ctx.textAlign = 'right'; if (!compact) ctx.fillText(game.gate.active ? 'EXIT · OPEN' : 'EXIT · LOCKED', game.gate.x * zoom - 10, game.gate.y * zoom + 4);
+  ctx.textAlign = 'right'; if (!compact) ctx.fillText(`EXIT · ${BARRIER_LABELS[game.gate.blasts]}`, game.gate.x * zoom - 10, game.gate.y * zoom + 4);
   for (const hunter of game.hunters) {
-    if (game.respawning(hunter)) continue;
+    if (!hunter.body.isEnabled() || game.respawning(hunter)) continue;
     const p = hunter.body.translation();
     drawSymbol(ctx, 'hunter', p.x * zoom, p.y * zoom, compact ? 4 : 7, hunterHeading(hunter, game.time));
   }
@@ -86,7 +91,7 @@ export function drawChart(ctx: CanvasRenderingContext2D, game: Game, w: number, 
   ctx.fillText('MAP & OBJECT GUIDE', left, 79);
   ctx.font = '13px monospace';
   ctx.fillStyle = '#95aebc';
-  ctx.fillText(`Collect any ${game.gemCount} gems from clouds and landmarks, then reach the exit.`, left, 105);
+  ctx.fillText(`Gem power ${game.thrustGems}/${game.escapeGemTarget} · small +1 / big +3 · hold boost · antimatter ${game.antimatter} · charges ${game.gate.blasts}/5`, left, 105);
 
   ctx.save();
   ctx.translate(left, top);
@@ -114,18 +119,18 @@ export function drawChart(ctx: CanvasRenderingContext2D, game: Game, w: number, 
   ctx.fillText('Gray pieces are solid. Gaps are open.', rx, top + 325);
   ctx.fillText('Rock resists. Ice slides and rebounds.', rx, top + 345);
 
-  const kinds: SymbolKind[] = ['gem', 'gate', 'hunter', 'boost', 'shield', 'orb', 'terrain'];
-  if (game.wells.length) kinds.push('blackhole', 'whitehole');
-  const legendTop = Math.max(top + mh + 33, top + 385);
+  const kinds: SymbolKind[] = ['gem', 'antimatter', 'gate', 'boost', 'shield', 'orb', 'terrain', 'hunter', 'whitehole', 'magnet'];
+  if (game.wells.some(w => w.polarity === 1)) kinds.push('blackhole');
+  const legendTop = Math.max(top + mh + 33, top + 360);
   const column = (sw - 76) / 3;
   kinds.forEach((kind, i) => {
-    const x = left + i % 3 * column, y = legendTop + Math.floor(i / 3) * 43;
+    const x = left + i % 3 * column, y = legendTop + Math.floor(i / 3) * 34;
     const info = OBJECT_INFO[kind];
     drawSymbol(ctx, kind, x + 10, y + 3, 9);
     ctx.textAlign = 'left'; ctx.fillStyle = info.color; ctx.font = 'bold 11px monospace';
     ctx.fillText(info.name, x + 28, y);
     ctx.fillStyle = '#a3b5bf'; ctx.font = '10px monospace';
-    ctx.fillText(info.meaning, x + 28, y + 17);
+    ctx.fillText(info.meaning, x + 28, y + 14);
   });
   ctx.fillStyle = '#9dd9df'; ctx.font = '12px monospace';
   ctx.fillText(game.state === 'menu' ? 'Close map to return to launch.  Enter also launches.' : 'FLIGHT PAUSED — close this map to resume.', left, sh - 20);

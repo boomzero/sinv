@@ -1,7 +1,8 @@
+import { exitLayout, outsideExit, CAPSULE_COUNT } from './exit';
 import { mulberry32, range, type RNG } from '../util/rng';
 import type { Difficulty } from '../difficulty';
 import type { GravityWell, PickupType } from '../entities/types';
-import { WELL_RADIUS, WHITE_HOLE_RADIUS, ORB_COUNT, SHIELD_COUNT, BOOSTCELL_COUNT, LANDMARK_SCALE } from '../constants';
+import { WELL_RADIUS, WHITE_HOLE_RADIUS, ORB_COUNT, SHIELD_COUNT, BOOSTCELL_COUNT, LANDMARK_SCALE, MAGNET_COUNT } from '../constants';
 
 export interface Point { x: number; y: number }
 export type LandmarkKind = 'halo' | 'binary' | 'graveyard' | 'needle' | 'pocket';
@@ -82,7 +83,7 @@ export function generateWorld(seed: number, difficulty: Pick<Difficulty, 'mapW' 
   // immediately. Reserve the whole opening trail before placing terrain.
   const openingTrail = [70, 140, 210].map(d => ({ x: 350 + d, y: h - 350 - d }));
   const protectedPoints = [{ x: 350, y: h - 350 }, ...openingTrail, { x: w - 320, y: h - 320 }, { x: 350, y: 350 }, { x: w - 350, y: 350 }];
-  const chosen = shuffled(KINDS, rng).slice(0, 3);
+  const chosen: LandmarkKind[] = ['binary', ...shuffled(KINDS.filter(k => k !== 'binary'), rng).slice(0, 2)];
   const landmarks: Landmark[] = [];
   // Reserve complete footprints, including gravity fields, so neighboring
   // landmarks never close one another's entrances. Rejection is bounded.
@@ -92,6 +93,7 @@ export function generateWorld(seed: number, difficulty: Pick<Difficulty, 'mapW' 
       const radius = RADII[kind] * LANDMARK_SCALE;
       for (let t = 0; t < 200; t++) {
         const p = { x: range(rng, radius + 130, w - radius - 130), y: range(rng, radius + 130, h - radius - 130) };
+        if (!outsideExit(p, w, h, radius + 140)) continue;
         if (protectedPoints.some(q => Math.hypot(p.x - q.x, p.y - q.y) < radius + 200)) continue;
         if (landmarks.some(q => Math.hypot(p.x - q.x, p.y - q.y) < radius + q.radius + 140)) continue;
         const variant = rng() < 0.5 ? 0 : 1, d = DETAILS[kind];
@@ -203,7 +205,7 @@ export function generateWorld(seed: number, difficulty: Pick<Difficulty, 'mapW' 
   }
 
   const solids = landmarks.flatMap(l => l.structures);
-  const clear = (p: Point, clearance: number) => p.x > 110 && p.y > 110 && p.x < w - 110 && p.y < h - 110 &&
+  const clear = (p: Point, clearance: number) => outsideExit(p, w, h, clearance) && p.x > 110 && p.y > 110 && p.x < w - 110 && p.y < h - 110 &&
     solids.every(s => distanceToStructure(p, s) > clearance) &&
     world.wells.every(q => Math.hypot(p.x - q.x, p.y - q.y) > q.radius + clearance);
   const sample = (clearance: number, spawnDistance: number): Point => {
@@ -271,5 +273,25 @@ export function generateWorld(seed: number, difficulty: Pick<Difficulty, 'mapW' 
     p ??= sample(radius + 45, 450);
     world.rocks.push({ ...p, radius, cloud: cloudIndex });
   }
+  // Three independent landmark caches and three field capsules. No fixed route
+  // is required, and all six lie outside the reserved exit challenge.
+  for (const l of landmarks) {
+    const anchor = world.pickups.find(p => p.landmark === l.kind && p.type !== 'gem')!;
+    let placed = false;
+    for (const offset of [65, 95, 125]) {
+      for (let i = 0; i < 12 && !placed; i++) {
+        const p = { x: anchor.x + Math.cos(i * TAU / 12) * offset, y: anchor.y + Math.sin(i * TAU / 12) * offset };
+        if (clear(p, 30) && world.pickups.every(q => Math.hypot(p.x - q.x, p.y - q.y) > 45) &&
+          world.rocks.every(r => Math.hypot(p.x - r.x, p.y - r.y) > r.radius + 40)) {
+          addPickup(p, 'antimatter', false, l.kind); placed = true;
+        }
+      }
+      if (placed) break;
+    }
+    if (!placed) addPickup(sample(50, 300), 'antimatter');
+  }
+  while (world.pickups.filter(p => p.type === 'antimatter').length < CAPSULE_COUNT) addPickup(sample(60, 300), 'antimatter');
+  for (let i = 0; i < MAGNET_COUNT; i++) addPickup(sample(50, 300), 'magnet');
+  world.wells.push(...exitLayout(w, h).wells);
   return world;
 }

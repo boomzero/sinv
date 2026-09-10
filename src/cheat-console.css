@@ -1,0 +1,52 @@
+.cheat-console {
+  box-sizing: border-box; width: min(620px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px); padding: 24px; overflow: auto;
+  color: #c7dbe4; background: #091722; border: 1px solid #345464;
+  border-radius: 14px; box-shadow: 0 24px 100px #000a;
+  font: 13px/1.5 ui-monospace, monospace;
+}
+.cheat-console::backdrop { background: #010711b8; backdrop-filter: blur(3px); }
+.cheat-console * { box-sizing: border-box; }
+.cheat-console header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+.cheat-console h2 { font: 600 20px/1.3 system-ui, sans-serif; color: #effaff; margin: 0 0 6px; }
+.cheat-console p { margin: 0; }
+.cheat-console header p { color: #77dbb4; font-size: 11px; }
+.cheat-console header p span { color: #849eac; }
+.cheat-console button { font: inherit; cursor: pointer; color: #bdd3de; background: #132936; border: 1px solid #2b4656; border-radius: 6px; padding: 7px 10px; }
+.cheat-console button:hover { background: #1b3948; border-color: #54859c; }
+.cheat-console :focus-visible { outline: 2px solid #55d7ec; outline-offset: 3px; }
+.cheat-console kbd { font: 10px ui-monospace, monospace; color: #8aa8b7; margin-left: 6px; }
+.cheat-console details { border: 1px solid #213c4a; border-radius: 8px; overflow: hidden; }
+.cheat-console summary { padding: 10px 12px; cursor: pointer; color: #a9c4d2; }
+.cheat-console summary span { float: right; font-size: 11px; color: #6e8d9e; }
+.command-reference { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #21313d; border-top: 1px solid #213c4a; }
+.command-reference button { display: flex; flex-direction: column; text-align: left; border: 0; border-radius: 0; background: #0c1c28; padding: 7px 12px; }
+.command-reference code { font: inherit; color: #8be1ed; }
+.command-reference span { color: #809cae; font-size: 11px; }
+.console-log-heading { display: flex; align-items: center; justify-content: space-between; color: #809cae; margin: 14px 0 5px; font-size: 11px; }
+.console-log-heading button { border: 0; background: transparent; padding: 2px 6px; font-size: 11px; }
+.console-log { height: 92px; overflow: auto; padding: 9px 12px; background: #06111a; border: 1px solid #1c303d; border-radius: 6px; overflow-wrap: anywhere; }
+.console-empty { color: #597989; }
+.console-result { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 3px 0; }
+.console-result code { font: inherit; color: #b8d3df; }
+.console-result span { color: #8ca8b7; }
+.console-result .console-success { color: #77dbb4; margin-left: auto; }
+.cheat-console label { display: block; color: #809cae; margin: 12px 0 5px; font-size: 11px; }
+.console-entry { display: flex; align-items: center; gap: 8px; border: 1px solid #3a6579; border-radius: 7px; padding: 5px 5px 5px 12px; background: #06111a; }
+.console-entry > span { color: #62ccdf; }
+.console-entry input { flex: 1; min-width: 0; width: 100%; background: transparent; color: #e0f5ff; border: 0; padding: 7px 0; font: inherit; }
+.console-entry input::placeholder { color: #557380; }
+.console-entry button { background: #86e1eb; color: #07212c; border-color: transparent; font-weight: bold; white-space: nowrap; }
+.console-entry button:hover { background: #b2f2f8; }
+.cheat-console footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 9px; font-size: 10px; color: #607f90; }
+@media (max-width: 460px) {
+  .cheat-console { padding: 16px; }
+  .command-reference { grid-template-columns: 1fr; max-height: 210px; overflow: auto; }
+  .command-reference button { flex-direction: row; justify-content: space-between; gap: 8px; }
+}
+
+.cheat-console .console-current { margin-top: 14px; font-size: 11px; color: #a8cfdf; }
+
+.console-archives details { margin-top: 8px; }
+.console-archives .console-log { border: 0; border-radius: 0; }
+.console-archives .console-success { color: #809cae; }

@@ -14,7 +14,7 @@ const saved = new Map();
 globalThis.localStorage = { getItem: k => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, v) };
 try {
   await build({ configFile: false, logLevel: 'silent', publicDir: false, build: { outDir: temp, lib: { entry: 'scripts/test-entry.ts', formats: ['es'], fileName: () => 'world.mjs' } } });
-  const { generateWorld, distanceToStructure, DIFFICULTIES, Game, RAPIER, Navigation, PhysicsContext, createWalls, createStructure, createAsteroid, createHunter, updateHunter, createPlayer, drawStarfield, drawLandmark, readSaved, writeSaved } = await import(pathToFileURL(join(temp, 'world.mjs')));
+  const { generateWorld, distanceToStructure, DIFFICULTIES, Game, RAPIER, exitLayout, outsideExit, Navigation, PhysicsContext, createWalls, createStructure, createAsteroid, createHunter, updateHunter, createPlayer, drawStarfield, drawLandmark, readSaved, writeSaved } = await import(pathToFileURL(join(temp, 'world.mjs')));
   const seen = new Set(), combinations = new Set(), navigationFixtures = new Map();
   const count = Number(process.env.SINV_TEST_SEEDS ?? 100);
   for (const difficulty of DIFFICULTIES) {
@@ -22,6 +22,7 @@ try {
       const layout = generateWorld(seed, difficulty);
       assert.deepEqual(layout, generateWorld(seed, difficulty), 'seed must reproduce the entire layout');
       assert.equal(layout.landmarks.length, 3);
+      assert.equal(layout.landmarks.filter(l => l.kind === 'binary').length, 1);
       assert.equal(new Set(layout.landmarks.map(l => l.kind)).size, 3);
       assert.equal(layout.pickups.filter(p => p.type === 'gem').length, layout.totalGems);
       assert.ok(layout.totalGems > difficulty.gemCount);
@@ -37,24 +38,29 @@ try {
       }
       for (const l of layout.landmarks) {
         const localCount = gems.filter(p => p.landmark === l.kind).length;
-        assert.ok(localCount + fieldGems.length < difficulty.gemCount, 'field gems plus one landmark cannot trivialize the quota');
+        assert.ok(localCount + fieldGems.length < difficulty.gemCount, 'field gems plus one landmark cannot trivialize engine preparation');
         assert.ok(layout.totalGems - localCount >= difficulty.gemCount, 'cloud scavenging allows any one landmark to be skipped');
         const localGems = gems.filter(p => p.landmark === l.kind);
         for (const [i, gem] of localGems.entries()) {
           assert.ok(Math.hypot(gem.x - l.x, gem.y - l.y) < l.radius, 'rewards stay within landmark footprints');
           for (const other of localGems.slice(i + 1)) assert.ok(Math.hypot(gem.x - other.x, gem.y - other.y) >= 125, 'landmark gems must not form dense pickup chains');
         }
-        // A straight boost through a landmark must not award half the quota.
+        // A straight boost through a landmark must not award half the recommended gems.
         // Count pickup discs intersected by lines through every pair of gems.
         for (const a of localGems) for (const b of localGems) {
           if (a === b) continue;
           const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
           const inPass = localGems.filter(p => Math.abs(dx * (p.y - a.y) - dy * (p.x - a.x)) / length <= 31).length;
-          assert.ok(inPass <= Math.ceil(difficulty.gemCount / 5), 'one boost pass yields at most one fifth of the quota');
+          assert.ok(inPass <= Math.ceil(difficulty.gemCount / 5), 'one boost pass yields at most one fifth of the recommended gem load');
         }
         if (difficulty.name === 'NORMAL' && l.kind !== 'binary' && !navigationFixtures.has(`${l.kind}:${l.variant}`)) navigationFixtures.set(`${l.kind}:${l.variant}`, { l, target: gems.find(p => p.landmark === l.kind), alternate: gems.filter(p => p.landmark === l.kind).at(-1), difficulty });
       }
-      const solids = layout.landmarks.flatMap(l => l.structures);
+      const exit = exitLayout(difficulty.mapW, difficulty.mapH);
+      const solids = [...layout.landmarks.flatMap(l => l.structures), ...exit.walls];
+      assert.equal(layout.wells.filter(w => w.exit).length, 2);
+      assert.equal(layout.pickups.filter(p => p.type === 'antimatter').length, 8);
+      assert.equal(layout.pickups.filter(p => p.type === 'magnet').length, 5);
+      assert.ok(layout.pickups.every(p => outsideExit(p, difficulty.mapW, difficulty.mapH)));
       combinations.add(layout.landmarks.map(l => l.kind).sort().join(','));
       for (const [i, l] of layout.landmarks.entries()) {
         seen.add(`${l.kind}:${l.variant}`);
@@ -74,7 +80,7 @@ try {
       const blocked = new Uint8Array(cols * rows);
       for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
         const p = { x: (x + 0.5) * step, y: (y + 0.5) * step };
-        blocked[y * cols + x] = +(p.x < 22 || p.y < 22 || p.x > difficulty.mapW - 22 || p.y > difficulty.mapH - 22 || solids.some(s => distanceToStructure(p, s) < 22) || layout.wells.some(q => Math.hypot(p.x - q.x, p.y - q.y) < (q.polarity === 1 ? 210 : 210)));
+        blocked[y * cols + x] = +(p.x < 22 || p.y < 22 || p.x > difficulty.mapW - 22 || p.y > difficulty.mapH - 22 || solids.some(s => distanceToStructure(p, s) < 22) || layout.wells.some(q => !q.exit && Math.hypot(p.x - q.x, p.y - q.y) < (q.polarity === 1 ? 210 : 210)));
       }
       const index = p => Math.floor(p.y / step) * cols + Math.floor(p.x / step);
       const queue = [index({ x: 350, y: difficulty.mapH - 350 })], reached = new Set(queue);
@@ -86,7 +92,7 @@ try {
           reached.add(next); queue.push(next);
         }
       }
-      for (const p of [...layout.pickups, { x: difficulty.mapW - 320, y: difficulty.mapH - 320 }]) {
+      for (const p of [...layout.pickups, exit.mouth]) {
         // A pickup may lie near the edge of an otherwise blocked grid cell.
         // Connect its exact position to a reached cell with a clear short segment.
         const px = Math.floor(p.x / step), py = Math.floor(p.y / step);
@@ -102,8 +108,8 @@ try {
     }
   }
   assert.equal(seen.size, 10, 'all five landmarks and both conditions appear');
-  if (count >= 100) assert.equal(combinations.size, 10, 'all three-of-five combinations appear');
-  console.log(`PASS: ${count * DIFFICULTIES.length} seeded maps, deterministic placement, spacing, safe pickups, navigable routes, 10 conditions and 10 combinations.`);
+  if (count >= 100) assert.equal(combinations.size, 6, 'all Binary-plus-two combinations appear');
+  console.log(`PASS: ${count * DIFFICULTIES.length} seeded maps, deterministic placement, spacing, safe pickups, navigable routes, 10 conditions and 6 combinations.`);
   console.log('PASS: dense asteroid clouds contain gems, one third of gems are outside landmarks, and any landmark can be skipped.');
 
   // Render calls must cover every rotated vertex, including pieces beyond the
@@ -276,17 +282,34 @@ try {
     assert.ok(Math.abs(velocity.x) <= maxDrift && Math.abs(velocity.y) <= maxDrift, 'clouds must persist while loose rocks retain their drift');
     assert.ok(game.asteroids[i].body.isDynamic(), 'cloud rocks still respond to impacts');
   }
-  assert.equal(game.structures.length, game.landmarks.flatMap(l => l.structures).length);
+  assert.equal(game.structures.length, game.landmarks.flatMap(l => l.structures).length + game.gate.layout.walls.length);
   assert.ok(game.structures.every(s => s.body.isFixed()));
   game.state = 'playing';
-  // Pick up the quota through actual sensor contacts, leaving optional gems.
+  // Pick up the recommended gems through actual sensor contacts, leaving optional gems.
   for (const p of game.pickups.filter(p => p.type === 'gem').slice(0, game.gemCount)) {
     game.player.body.setTranslation({ x: p.x, y: p.y }, true);
     game.player.body.setLinvel({ x: 0, y: 0 }, true);
     game.fixedUpdate(1 / 60);
   }
   assert.equal(game.gemsCollected, game.gemCount);
+  assert.equal(game.gate.active, false, 'gems upgrade thrust without magically opening the exit');
+  assert.ok(game.player.engineMultiplier > 1);
+  const capsule = game.pickups.find(p => p.type === 'antimatter');
+  game.player.body.setTranslation(capsule, true);
+  game.player.body.setLinvel({ x: 0, y: 0 }, true);
+  game.fixedUpdate(1 / 60);
+  assert.equal(game.antimatter, 1, 'actual capsule contact adds inventory');
+  game.player.body.setTranslation({ x: game.gate.layout.barrier.x - 150, y: game.gate.y }, true);
+  assert.equal(game.detonate(), true);
+  assert.equal(game.gate.active, false, 'first blast only excavates a crater');
+  for (const extra of game.pickups.filter(p => p.type === 'antimatter' && !p.taken).slice(0, 2)) {
+    game.player.body.setTranslation(extra, true); game.player.body.setLinvel({ x: 0, y: 0 }, true);
+    game.fixedUpdate(1 / 60);
+  }
+  game.player.body.setTranslation({ x: game.gate.layout.barrier.x - 150, y: game.gate.y }, true);
+  assert.equal(game.detonate(), true); assert.equal(game.detonate(), true);
   assert.equal(game.gate.active, true);
+  assert.equal(game.antimatter, 0);
   assert.ok(game.pickups.some(p => p.type === 'gem' && !p.taken));
   game.player.body.setTranslation({ x: game.gate.x, y: game.gate.y }, true);
   game.fixedUpdate(1 / 60);
@@ -420,7 +443,7 @@ try {
   assert.equal(readSaved('release-probe'), 'changed-in-another-tab', 'successful writes do not mask changes from other tabs');
   console.log('PASS: seed-preserving difficulty changes, clean pause/restart/focus input, tap-to-resume, material-aware hunter shoves and blocked storage.');
   game.physics.free();
-  console.log('PASS: Rapier terrain, real gem contacts, quota unlock, escape, reset, chart controls, pause and 600 simulation steps.');
+  console.log('PASS: Rapier terrain, real gem contacts, engine upgrades, capsule contact, barrier destruction, escape, reset, chart controls, pause and 600 simulation steps.');
 } finally {
   await rm(temp, { recursive: true, force: true });
 }

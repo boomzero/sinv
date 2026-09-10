@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SINV — Escape approach lab</title>
+<style>
+  * { box-sizing:border-box } body { margin:0; background:#050b14; color:#d9eef4; font:13px monospace; height:100vh; display:flex; flex-direction:column }
+  header { padding:12px 16px; border-bottom:1px solid #294653; display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+  button,select { font:inherit; color:inherit; background:#18333e; border:1px solid #658998; border-radius:5px; padding:10px; min-height:44px }
+  button:disabled { opacity:.45 } canvas { display:block; flex:1; min-height:0; width:100%; touch-action:none }
+  footer { padding:10px 16px; color:#9bb5c2; line-height:1.6 } a { color:#76f0a6 }
+</style>
+</head>
+<body>
+<header>
+  <strong>ESCAPE LAB</strong>
+  <label>Engine <select id="gems"><option value="0">0 gems</option><option value="30">30 gems</option><option value="54" selected>54 gems</option><option value="60">60 gems</option><option value="84">84 gems</option></select></label>
+  <button id="reset">Reset approach</button><button id="blast">Detonate (5)</button><button id="fly">Fly straight</button><button id="magnet">Try magnetism</button>
+  <a href="/">Full game</a>
+</header>
+<canvas id="preview" aria-label="Live escape corridor with barrier and two white holes"></canvas>
+<footer><span id="status">Inspection paused · detonate to inspect each breach.</span><br>Controlled fixture: no hunter or loose asteroids. Real thrust, fuel, white-hole forces and collisions. Score saving disabled.</footer>
+<script type="module">
+import RAPIER from '@dimforge/rapier2d-compat';
+import { Game } from '/src/game.ts';
+import { createPickup } from '/src/entities/pickup.ts';
+import { GEM_THRUST_GAIN } from '/src/world/exit.ts';
+import { drawScene } from '/src/render/renderer.ts';
+import { drawHud } from '/src/render/hud.ts';
+await RAPIER.init();
+const game = new Game(), canvas = document.querySelector('canvas'), ctx = canvas.getContext('2d');
+const gems = document.querySelector('#gems'), blast = document.querySelector('#blast'), fly = document.querySelector('#fly'), status = document.querySelector('#status');
+let running = false, magnetDemo = false;
+Object.defineProperties(game.input, { thrust:{get:()=>running && !magnetDemo}, boost:{get:()=>running && !magnetDemo}, turn:{get:()=>0}, reverse:{get:()=>false} });
+function reset() {
+  game.difficultyIndex=1; game.reset(42); game.state='playing'; game.cheatsUsed=true; game.mouseSteer=false;
+  for(const h of game.hunters) game.physics.world.removeRigidBody(h.body); game.hunters=[];
+  for(const a of game.asteroids) game.physics.world.removeRigidBody(a.body); game.asteroids=[];
+  game.gemsCollected=Number(gems.value); game.player.engineMultiplier=1+game.gemsCollected*GEM_THRUST_GAIN;
+  game.antimatter=5; game.player.body.setTranslation({x:game.gate.layout.barrier.x-150,y:game.gate.y},true); game.player.body.setRotation(0,true);
+  running=false; magnetDemo=false; fly.textContent='Fly straight'; status.textContent='Inspection paused · detonate to inspect each breach.';
+}
+gems.onchange=reset; document.querySelector('#reset').onclick=reset;
+blast.onclick=()=>game.detonate(); fly.onclick=()=>{running=!running;fly.textContent=running?'Pause flight':'Fly straight';};
+document.querySelector('#magnet').onclick=()=>{
+  reset(); magnetDemo=true;
+  const p=game.player.body.translation();
+  for(const [type,dx,dy] of [['magnet',0,0],['gem',-100,-60],['gem',-170,0],['orb',-100,60],['antimatter',-170,70],['boost',-160,-70]]) {
+    game.pickups.push(createPickup(game.physics,type,p.x+dx,p.y+dy,0));
+  }
+  running=true; fly.textContent='Pause flight';
+};
+reset();
+let last=performance.now(), acc=0;
+function frame(now) {
+  acc+=Math.min((now-last)/1000,.1);last=now;
+  while(acc>=1/60) {
+    if(running) game.fixedUpdate(1/60);
+    else {game.time+=1/60;game.playT+=1/60;game.particles.update(1/60);}
+    acc-=1/60;
+  }
+  const w=canvas.clientWidth,h=canvas.clientHeight,dpr=devicePixelRatio||1;
+  if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
+  ctx.setTransform(dpr,0,0,dpr,0,0); const zoom=Math.min(w/1500,h/850);
+  game.camera.snapTo(game.gate.x-490,game.gate.y-60);
+  ctx.save();ctx.scale(zoom,zoom);drawScene(ctx,game,w/zoom,h/zoom);ctx.restore();drawHud(ctx,game,w,h);
+  blast.disabled=!game.canDetonate;blast.textContent=`Detonate (${game.antimatter})`;
+  if(running) status.textContent=game.state==='win'?'ESCAPED — reset to compare another engine or breach width.':game.state==='gameover'?'SHIP DESTROYED — rock impacts damage hull. Reset to retry.':`Flight active · boost tank ${Math.round(game.player.boostFuel)}% · ${game.gate.blasts}/5 charges used`;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

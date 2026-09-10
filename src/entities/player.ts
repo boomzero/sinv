@@ -41,6 +41,7 @@ export function createPlayer(ctx: PhysicsContext, x: number, y: number): Player 
     damageCooldown: 0,
     alive: true,
     healedTotal: 0,
+    engineMultiplier: 1,
   };
   ctx.register(collider, player);
   return player;
@@ -56,7 +57,7 @@ export function updatePlayer(
   input: Input,
   dt: number,
   aimAngle: number | null = null,
-  cheats = false,
+  infiniteBoost = false,
 ): PlayerFrame {
   const { body } = player;
   player.damageCooldown = Math.max(0, player.damageCooldown - dt);
@@ -74,8 +75,8 @@ export function updatePlayer(
   body.resetForces(true);
 
   const thrusting = input.thrust || (aimAngle !== null && (input.mouseDown || input.touchActive));
-  const boosting = input.boost && thrusting && (cheats || player.boostFuel > 0);
-  if (cheats) {
+  const boosting = input.boost && thrusting && (infiniteBoost || player.boostFuel > 0);
+  if (infiniteBoost) {
     // Infinite boost: the tank never empties.
     player.boostFuel = BOOST_MAX;
   } else if (boosting) {
@@ -85,8 +86,8 @@ export function updatePlayer(
   }
 
   let accel = 0;
-  if (thrusting) accel += PLAYER_ACCEL * (boosting ? BOOST_MULT : 1);
-  if (input.reverse) accel -= PLAYER_REVERSE_ACCEL;
+  if (thrusting) accel += PLAYER_ACCEL * player.engineMultiplier * (boosting ? BOOST_MULT : 1);
+  if (input.reverse) accel -= PLAYER_REVERSE_ACCEL * player.engineMultiplier;
 
   if (accel !== 0) {
     const rot = body.rotation();

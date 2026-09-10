@@ -1,6 +1,7 @@
 import RAPIER from '@dimforge/rapier2d-compat';
 import type { EventQueue } from '@dimforge/rapier2d-compat';
 import { PhysicsContext, createWalls } from './physics';
+import { BLAST_RANGE, GEM_THRUST_GAIN, MAX_BLASTS, EXIT_REFERENCE_ENGINE, EXIT_WELL_STRENGTH, EXIT_FIELD_DRAG, outsideExit } from './world/exit';
 import { Input } from './input';
 import { Camera } from './camera';
 import { Navigation } from './ai/navigation';
@@ -14,7 +15,7 @@ import { createPlayer, updatePlayer, type PlayerFrame } from './entities/player'
 import { createHunter, updateHunter } from './entities/hunter';
 import { createAsteroid, createStructure, ASTEROID_MATERIALS } from './entities/asteroid';
 import { readSaved, writeSaved } from './util/storage';
-import { createPickup, createGate, removePickup } from './entities/pickup';
+import { createPickup, createGate, removePickup, blastBarrier, PICKUP_RADIUS } from './entities/pickup';
 import type {
   Player,
   Hunter,
@@ -25,6 +26,8 @@ import type {
   Entity,
 } from './entities/types';
 import {
+  SHIELD_INVULNERABILITY,
+  MAGNET_DURATION, MAGNET_RADIUS, MAGNET_SPEED,
   GEM_SCORE,
   GEM_BONUS_MULT,
   MULT_MAX,
@@ -64,7 +67,7 @@ import {
 } from './constants';
 
 // Hidden cheat code: type these letters during a run (edge://surf style) to
-// toggle test mode — infinite boost and asteroid invulnerability. Undocumented.
+// toggle access to the command console. Gameplay overrides are opt-in.
 const CHEAT_CODE = 'kelly';
 
 export type GameState = 'menu' | 'playing' | 'paused' | 'gameover' | 'win';
@@ -97,6 +100,7 @@ export class Game {
 
   state: GameState = 'menu';
   seed = 0;
+  runId = 0;
   totalGems = 0;
   landmarks: Landmark[] = [];
   structures: Asteroid[] = [];
@@ -141,8 +145,10 @@ export class Game {
   lossReason: LossReason = 'caught';
   mouseSteer = readSaved('sinv-mouse') === '1';
   debugDraw = false;
-  /** Hidden cheat toggle: infinite boost + asteroid invulnerability (hunter stays lethal). */
+  /** Enables testing commands; gameplay overrides start disabled. */
   cheats = false;
+  infiniteBoost = false;
+  impactImmunity = false;
   /** Sticky for the run: once cheats touch a run, its score never saves — even if toggled back off. */
   cheatsUsed = false;
   /** playT when the first BHAS override intercept was triggered this run (−1 = not yet). */
@@ -167,10 +173,12 @@ export class Game {
     return DIFFICULTIES[this.difficultyIndex];
   }
 
-  /** Gems needed to unlock the exit gate this run. */
+  /** Recommended gem preparation; escape is decided by physics, never a quota. */
   get gemCount() {
     return this.difficulty.gemCount;
   }
+
+  get escapeGemTarget() { return this.difficulty.escapeGems ?? this.gemCount; }
 
   /** True while a black hole has swallowed this hunter and it hasn't re-materialized yet. */
   respawning(h: Hunter): boolean {
@@ -184,6 +192,12 @@ export class Game {
   winBreakdown: ScoreBreakdown | null = null;
   gemsCollected = 0;
   orbsCollected = 0;
+  antimatter = 0;
+  magnetUntil = 0;
+  shieldUntil = 0;
+  private impactSpeed = 0;
+  lastGemAt = -1;
+  lastBlastAt = -1;
 
   physics!: PhysicsContext;
   navigation!: Navigation;
@@ -207,6 +221,7 @@ export class Game {
   }
 
   reset(seed: number): void {
+    this.runId++;
     this.input.clearHeld();
     if (this.physics) this.physics.free();
     if (this.eventQueue) this.eventQueue.free();
@@ -226,11 +241,18 @@ export class Game {
     this.score = 0;
     // A fresh run starts clean: cheats off and the run's score-saving untainted.
     this.cheats = false;
+    this.infiniteBoost = false;
+    this.impactImmunity = false;
     this.cheatsUsed = false;
     this.isNewHighScore = false;
     this.winBreakdown = null;
     this.gemsCollected = 0;
     this.orbsCollected = 0;
+    this.antimatter = 0;
+    this.magnetUntil = 0;
+    this.shieldUntil = 0;
+    this.lastGemAt = -1;
+    this.lastBlastAt = -1;
     this.interceptAt = -1;
     this.lungeUnlockedAt = -1;
     this.closeCallHunter = null;
@@ -266,7 +288,8 @@ export class Game {
     this.landmarks = layout.landmarks;
     this.totalGems = layout.totalGems;
     this.wells = layout.wells;
-    this.navigation = new Navigation(this.mapW, this.mapH, this.landmarks.flatMap(l => l.structures));
+    this.rebuildNavigation();
+    for (const shape of this.gate.layout.walls) this.structures.push(createStructure(this.physics, shape));
     const rng = mulberry32(this.seed ^ 0x51f15e);
     for (const landmark of this.landmarks) {
       for (const shape of landmark.structures) this.structures.push(createStructure(this.physics, shape));
@@ -275,6 +298,62 @@ export class Game {
     // Clouds stay coherent over a full run; loose field rocks keep their fast
     // drift. Both remain physical and can be pushed apart by impacts.
     for (const r of layout.rocks) this.asteroids.push(createAsteroid(this.physics, rng, r.x, r.y, r.radius, r.cloud === undefined ? 70 : 4));
+  }
+
+  get thrustGems(): number { return Math.round((this.player.engineMultiplier - 1) / GEM_THRUST_GAIN); }
+
+  get shieldRemaining(): number { return Math.max(0, this.shieldUntil - this.playT); }
+
+  private activateShield(): void {
+    this.player.shield = false;
+    this.shieldUntil = this.playT + SHIELD_INVULNERABILITY;
+    const p = this.player.body.translation();
+    this.particles.burst(p.x, p.y, 24, 240, 0.7, 4, '#a8cfff');
+  }
+
+  get magnetRemaining(): number { return Math.max(0, this.magnetUntil - this.playT); }
+
+  private attractPickups(dt: number): void {
+    if (this.magnetRemaining <= 0 || !this.player.alive) return;
+    const pos = this.player.body.translation();
+    for (const pickup of this.pickups) {
+      if (pickup.taken) continue;
+      const dx = pos.x - pickup.x, dy = pos.y - pickup.y, distance = Math.hypot(dx, dy);
+      if (distance < 1 || distance > MAGNET_RADIUS) continue;
+      // Do not pull rewards through station walls or the intact barrier.
+      if (!this.navigation.clearLine(pickup, pos, PICKUP_RADIUS[pickup.type] + 6)) continue;
+      const amount = Math.min(distance, MAGNET_SPEED * dt) / distance;
+      pickup.x += dx * amount; pickup.y += dy * amount;
+      pickup.collider.setTranslation({ x: pickup.x, y: pickup.y });
+    }
+  }
+
+  get nearBarrier(): boolean {
+    const p = this.player.body.translation(), b = this.gate.layout.barrier;
+    return Math.hypot(p.x - b.x, p.y - b.y) <= BLAST_RANGE && Math.abs(p.y - b.y) < 125;
+  }
+
+  get canDetonate(): boolean {
+    return this.state === 'playing' && this.player.alive && this.nearBarrier &&
+      this.antimatter > 0 && this.gate.blasts < MAX_BLASTS;
+  }
+
+  detonate(): boolean {
+    if (!this.canDetonate || !blastBarrier(this.physics, this.gate, this.playT)) return false;
+    this.antimatter--;
+    this.lastBlastAt = this.playT;
+    const b = this.gate.layout.barrier;
+    this.particles.burst(b.x, b.y, 55, 280, 1.4, 6, '#ffb875');
+    this.rebuildNavigation();
+    for (const h of this.hunters) { h.route = []; h.repathAt = 0; }
+    return true;
+  }
+
+  private rebuildNavigation(): void {
+    this.navigation = new Navigation(this.mapW, this.mapH, [
+      ...this.landmarks.flatMap(l => l.structures), ...this.gate.layout.walls,
+      ...this.gate.chunks.filter(c => c.destroyedAt < 0).map(c => c.shape),
+    ]);
   }
 
   fixedUpdate(dt: number): void {
@@ -292,7 +371,8 @@ export class Game {
     }
     if (this.input.justPressed('Tab')) this.toggleChart();
     if (this.state === 'menu' && this.chartOpen && this.input.justPressed('Escape')) this.toggleChart();
-    if (this.input.justPressed('KeyR')) {
+    if (this.input.justPressed('KeyR') &&
+      (this.state === 'paused' || this.state === 'gameover' || this.state === 'win')) {
       this.restart();
     }
     if (
@@ -328,6 +408,7 @@ export class Game {
 
     if (this.state === 'playing') {
       this.playT += dt;
+      if (this.input.justPressed('KeyE')) this.detonate();
       let aimAngle: number | null = null;
       if (this.input.fixedJoystick && this.input.touchActive) {
         aimAngle = this.input.joystickAngle;
@@ -337,7 +418,7 @@ export class Game {
         const pp = this.player.body.translation();
         aimAngle = Math.atan2(wy - pp.y, wx - pp.x);
       }
-      this.playerFrame = updatePlayer(this.player, this.input, dt, aimAngle, this.cheats);
+      this.playerFrame = updatePlayer(this.player, this.input, dt, aimAngle, this.cheats && this.infiniteBoost);
       this.emitEngineTrail();
       const lungesUnlocked =
         this.gemsCollected >= this.gemCount * HUNTER_LUNGE_GEM_FRACTION;
@@ -345,6 +426,7 @@ export class Game {
         this.lungeUnlockedAt = this.playT;
       }
       for (const hunter of this.hunters) {
+        if (!hunter.body.isEnabled()) continue;
         if (this.respawning(hunter)) {
           // Swallowed by a core: sit out the timer, parked and inert at spawn.
           hunter.body.resetForces(true);
@@ -383,6 +465,9 @@ export class Game {
 
     this.applyGravityWells();
 
+    if (this.state === 'playing') this.attractPickups(dt);
+    const incoming = this.player.body.linvel();
+    this.impactSpeed = Math.hypot(incoming.x, incoming.y);
     this.physics.world.step(this.eventQueue);
     this.eventQueue.drainCollisionEvents((h1, h2, started) => {
       if (!started || this.state !== 'playing') return;
@@ -413,7 +498,7 @@ export class Game {
 
   /** A hunter counts as a close-call threat only when on the map and active. */
   private threatening(h: Hunter): boolean {
-    return !this.respawning(h) && h.stunnedUntil <= this.playT;
+    return h.body.isEnabled() && !this.respawning(h) && h.stunnedUntil <= this.playT;
   }
 
   private tickCloseCall(dt: number): void {
@@ -465,7 +550,7 @@ export class Game {
     const playing = this.state === 'playing';
     const hunterBodies = new Set(
       this.hunters
-        .filter((h) => playing && !this.respawning(h))
+        .filter((h) => playing && h.body.isEnabled() && !this.respawning(h))
         .map((h) => h.body),
     );
     const bodies = [
@@ -494,6 +579,7 @@ export class Game {
           const accel =
             (WELL_PULL / Math.pow(Math.max(dist, WELL_MIN_DIST), WELL_FALLOFF)) *
             factor *
+            (well.exit ? EXIT_WELL_STRENGTH * (1 + this.escapeGemTarget * GEM_THRUST_GAIN) / EXIT_REFERENCE_ENGINE : 1) *
             well.polarity *
             (well.polarity === -1 ? WHITE_HOLE_PUSH_FACTOR : 1);
           const f = (accel * body.mass()) / dist;
@@ -503,11 +589,19 @@ export class Game {
           // top of the radial push; grazing it along the spin does net positive
           // work, so you leave faster. The hunter gets no boost from it, only
           // the hard radial bounce above, so a white hole pass opens distance.
-          if (well.polarity === -1 && isPlayer) {
+          if (well.polarity === -1 && isPlayer && !well.exit) {
             const tanMag =
               (WHITE_HOLE_SWIRL * Math.abs(accel) * body.mass() * WHITE_HOLE_SWIRL_DIR) /
               dist;
             body.addForce({ x: dy * tanMag, y: -dx * tanMag }, true);
+          }
+
+          if (well.exit) {
+            // Momentum dissipates in the repulsor field. No gem-count check,
+            // velocity clamp or invisible lock: sustained thrust must win.
+            const v = body.linvel();
+            const drag = EXIT_FIELD_DRAG * Math.min(1, (well.radius - dist) / 150) * body.mass();
+            body.addForce({ x: -v.x * drag, y: -v.y * drag }, true);
           }
 
           // Inside a black hole's bait band, ships hit heavy drag that bleeds
@@ -532,6 +626,8 @@ export class Game {
       for (const well of this.wells) {
         if (well.polarity !== 1) continue;
         if (Math.hypot(well.x - pp.x, well.y - pp.y) < WELL_CORE_RADIUS) {
+          if (this.shieldRemaining > 0) continue;
+          if (this.player.shield) { this.activateShield(); continue; }
           this.player.hull = 0;
           this.particles.burst(pp.x, pp.y, 30, 220, 0.9, 4, '#c873ff');
           this.lose('destroyed');
@@ -545,6 +641,7 @@ export class Game {
     // at its own spawn corner.
     if (this.state === 'playing') {
       for (const hunter of this.hunters) {
+        if (!hunter.body.isEnabled()) continue;
         if (this.respawning(hunter)) continue;
         const hp = hunter.body.translation();
         for (const well of this.wells) {
@@ -579,6 +676,7 @@ export class Game {
         for (let tries = 0; tries < 40; tries++) {
           const cx = 180 + Math.random() * (this.mapW - 360);
           const cy = 180 + Math.random() * (this.mapH - 360);
+          if (!outsideExit({ x: cx, y: cy }, this.mapW, this.mapH, asteroid.radius + 40)) continue;
           if (
             Math.hypot(cx - ppos.x, cy - ppos.y) > 600 &&
             this.wells.every((w) => Math.hypot(cx - w.x, cy - w.y) > w.radius + asteroid.radius) &&
@@ -607,14 +705,14 @@ export class Game {
     const vel = body.linvel();
     const fx = Math.cos(rot);
     const fy = Math.sin(rot);
-    const n = this.playerFrame.boosting ? 4 : 2;
+    const n = (this.playerFrame.boosting ? 4 : 2) + Math.floor((this.player.engineMultiplier - 1) * 3);
     const color = this.playerFrame.boosting ? '#ffffff' : '#3fd6ff';
     for (let i = 0; i < n; i++) {
       this.particles.emit(
         pos.x - fx * 16 + (Math.random() - 0.5) * 6,
         pos.y - fy * 16 + (Math.random() - 0.5) * 6,
-        vel.x * 0.3 - fx * 160 + (Math.random() - 0.5) * 50,
-        vel.y * 0.3 - fy * 160 + (Math.random() - 0.5) * 50,
+        vel.x * 0.3 - fx * 160 * this.player.engineMultiplier + (Math.random() - 0.5) * 50,
+        vel.y * 0.3 - fy * 160 * this.player.engineMultiplier + (Math.random() - 0.5) * 50,
         0.3 + Math.random() * 0.25,
         this.playerFrame.boosting ? 5 : 4,
         color,
@@ -628,6 +726,7 @@ export class Game {
       else if (b.kind === 'gate' && b.active) this.win();
       else if (b.kind === 'hunter') this.resolveHunterTouch(b);
       else if (b.kind === 'asteroid') this.asteroidImpact(b);
+      else if (b.kind === 'barrier') this.impactDamage(this.impactSpeed);
     } else if (a.kind === 'hunter' && b.kind === 'asteroid' && !b.fixed) {
       // The hunter bulldozes: any rock it touches gets launched along its
       // direction of travel, turning the chase itself into a hazard.
@@ -660,11 +759,20 @@ export class Game {
         const value = pickup.bonus ? GEM_SCORE * GEM_BONUS_MULT : GEM_SCORE;
         this.score += Math.round(value * this.player.mult * this.difficulty.scoreMultiplier);
         this.gemsCollected++;
-        if (this.gemsCollected >= this.gemCount) this.gate.active = true;
+        this.player.engineMultiplier += GEM_THRUST_GAIN * (pickup.bonus ? GEM_BONUS_MULT : 1);
+        this.lastGemAt = this.playT;
         const n = pickup.bonus ? 20 : 10;
         this.particles.burst(pickup.x, pickup.y, n, 150, 0.5, 3, '#41ffe0');
         break;
       }
+      case 'magnet':
+        this.magnetUntil = Math.max(this.magnetUntil, this.playT + MAGNET_DURATION);
+        this.particles.burst(pickup.x, pickup.y, 18, 180, 0.7, 4, '#f48ed5');
+        break;
+      case 'antimatter':
+        this.antimatter++;
+        this.particles.burst(pickup.x, pickup.y, 18, 140, 0.7, 4, '#ffb875');
+        break;
       case 'orb': {
         this.player.mult = Math.min(MULT_MAX, this.player.mult + 1);
         const healed =
@@ -690,21 +798,26 @@ export class Game {
   }
 
   private asteroidImpact(asteroid: Asteroid): void {
-    // Cheat mode: rocks still bounce physically, but never dent the hull or
+    // Optional impact immunity: rocks still bounce physically, but never dent the hull or
     // burn the shield. Hunter contact stays lethal — handled elsewhere.
-    if (this.cheats) return;
+    if (this.cheats && this.impactImmunity) return;
     if (this.player.damageCooldown > 0) return;
     const pv = this.player.body.linvel();
     const av = asteroid.body.linvel();
     const relSpeed = Math.hypot(pv.x - av.x, pv.y - av.y);
+    this.impactDamage(relSpeed);
+  }
+
+  private impactDamage(speed: number): void {
+    if ((this.cheats && this.impactImmunity) || this.shieldRemaining > 0 || this.player.damageCooldown > 0) return;
     const dmg = Math.min(
       DAMAGE_MAX,
-      (relSpeed - DAMAGE_SPEED_THRESHOLD) * DAMAGE_SCALE,
+      (speed - DAMAGE_SPEED_THRESHOLD) * DAMAGE_SCALE,
     );
     if (dmg <= 0) return;
     this.player.damageCooldown = DAMAGE_COOLDOWN;
     if (this.player.shield) {
-      this.player.shield = false;
+      this.activateShield();
       this.camera.addShake(5);
       const sp = this.player.body.translation();
       this.particles.burst(sp.x, sp.y, 18, 240, 0.6, 4, '#6699ff');
@@ -724,9 +837,9 @@ export class Game {
   private resolveHunterTouch(hunter: Hunter): void {
     // A stunned hunter is harmless — ignore the touch entirely so it can't burn
     // the player's shield or end the run during its grace period.
-    if (hunter.stunnedUntil > this.playT) return;
-    if (this.player.shield) {
-      this.player.shield = false;
+    if (!hunter.body.isEnabled() || hunter.stunnedUntil > this.playT) return;
+    if (this.player.shield || this.shieldRemaining > 0) {
+      if (this.shieldRemaining <= 0) this.activateShield();
       hunter.stunnedUntil = this.playT + HUNTER_STUN;
       const hp = hunter.body.translation();
       const pp = this.player.body.translation();

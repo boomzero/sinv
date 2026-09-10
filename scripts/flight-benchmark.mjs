@@ -22,21 +22,31 @@ try {
   game.mouseSteer = true; game.viewW = 1280; game.viewH = 720;
   const controls = { thrust: false, boost: false };
   Object.defineProperties(game.input, { thrust: { get: () => controls.thrust }, boost: { get: () => controls.boost } });
-  // Fixed terrain sectors isolate collection pacing from gravity maneuvers.
+  // Every sector includes a Binary. This conservative pilot routes around its fields.
   for (const seed of [0, 19, 42]) {
     game.reset(seed); game.state = 'menu'; game.launch();
-    assert.equal(game.wells.length, 0, 'pacing fixtures must be terrain sectors');
+    assert.equal(game.landmarks.filter(l => l.kind === 'binary').length, 1);
     for (const hunter of game.hunters) game.physics.world.removeRigidBody(hunter.body);
     game.hunters = [];
-    const nav = new Navigation(game.mapW, game.mapH, game.landmarks.flatMap(l => l.structures));
+    const binary = game.landmarks.find(l => l.kind === 'binary');
+    const makeNav = () => new Navigation(game.mapW, game.mapH, [
+      ...game.landmarks.flatMap(l => l.structures), ...game.gate.layout.walls,
+      ...game.gate.chunks.filter(c => c.destroyedAt < 0).map(c => c.shape),
+      ...game.wells.filter(w => !w.exit).map(w => ({ x: w.x, y: w.y, material: 'rock', accent: '#fff',
+        verts: Array.from({ length: 16 }, (_, i) => [Math.cos(i * Math.PI / 8) * (w.radius + 60), Math.sin(i * Math.PI / 8) * (w.radius + 60)]).flat() })),
+    ]);
+    let nav = makeNav();
     let target = null, route = [], refresh = 0;
     for (let frame = 0; frame < 60 * 300 && game.state === 'playing'; frame++) {
       const pos = game.player.body.translation(), vel = game.player.body.linvel();
-      if (!target || target.taken || game.gate.active && target !== game.gate) {
-        target = game.gate.active ? game.gate : null;
+      const ready = game.gemsCollected >= game.escapeGemTarget && game.antimatter + game.gate.blasts >= 3;
+      if (ready && game.canDetonate) { while (game.canDetonate) game.detonate(); nav = makeNav(); }
+      const destination = game.gate.active ? game.gate : game.gate.layout.mouth;
+      if (!target || target.taken || ready && target !== destination) {
+        target = ready ? destination : null;
         if (!target) {
           let shortest = Infinity;
-          for (const gem of game.pickups.filter(p => p.type === 'gem' && !p.taken)) {
+          for (const gem of game.pickups.filter(p => !p.taken && Math.hypot(p.x - binary.x, p.y - binary.y) > binary.radius && (p.type === 'gem' && game.gemsCollected < game.escapeGemTarget || p.type === 'antimatter' && game.antimatter < 3))) {
             if (Math.hypot(gem.x - pos.x, gem.y - pos.y) >= shortest) continue;
             const path = nav.findPath(pos, gem);
             if (!path.length) continue;
@@ -50,22 +60,27 @@ try {
       if (!target) break;
       if (frame >= refresh) { route = nav.findPath(pos, target); refresh = frame + 30; }
       while (route.length > 1 && (Math.hypot(route[0].x - pos.x, route[0].y - pos.y) < 30 || nav.clearLine(pos, route[1]))) route.shift();
-      const waypoint = route[0] ?? target;
+      const inApproach = ready && Math.abs(pos.y - game.gate.y) < 60 && pos.x >= game.gate.layout.mouth.x - 70;
+      const waypoint = inApproach ? game.gate : route[0] ?? target;
       const dx = waypoint.x - pos.x, dy = waypoint.y - pos.y, distance = Math.max(1, Math.hypot(dx, dy));
       const speed = Math.min(game.player.boostFuel > 10 ? 650 : 350, Math.sqrt(2 * 220 * Math.max(0, distance - 8)));
       const ax = (dx / distance * speed - vel.x) * 3, ay = (dy / distance * speed - vel.y) * 3;
-      const aim = Math.atan2(ay, ax);
+      // Center before pushing through the narrow three-charge tunnel; strong
+      // lateral correction also lets the pilot back off a jagged rock face.
+      const aligning = inApproach && pos.x < game.gate.layout.barrier.x + 120 && Math.abs(pos.y - game.gate.y) > 8;
+      const aim = inApproach ? Math.atan2((game.gate.y - pos.y) * (aligning ? 12 : 4) - vel.y * 3, aligning ? 70 : 450) : Math.atan2(ay, ax);
       const error = Math.atan2(Math.sin(aim - game.player.body.rotation()), Math.cos(aim - game.player.body.rotation()));
       game.input.mouseX = pos.x + Math.cos(aim) * 200 - game.camera.x + game.viewW / 2;
       game.input.mouseY = pos.y + Math.sin(aim) * 200 - game.camera.y + game.viewH / 2;
       controls.thrust = Math.abs(error) < 0.5 && Math.hypot(ax, ay) > 30;
       controls.boost = Math.abs(error) < 0.15 && Math.hypot(ax, ay) > 650 && distance > 400;
+      if (inApproach) { controls.thrust = true; controls.boost = pos.x > game.gate.layout.barrier.x - 30; }
       game.player.hull = 100;
       game.fixedUpdate(1 / 60);
     }
-    console.log(JSON.stringify({ seed, state: game.state, seconds: Math.round(game.playT), gems: game.gemsCollected, quota: game.gemCount }));
+    console.log(JSON.stringify({ seed, state: game.state, seconds: Math.round(game.playT), gems: game.gemsCollected, recommended: game.escapeGemTarget, blasts: game.gate.blasts }));
     assert.equal(game.state, 'win', `collection pilot must finish seed ${seed}`);
-    assert.ok(game.playT >= 100 && game.playT <= 180, `collection pacing regression on seed ${seed}: ${game.playT}s`);
+    assert.ok(game.playT >= 100 && game.playT <= 180, `escape pacing regression on seed ${seed}: ${game.playT}s`);
   }
   game.physics.free();
 } finally {

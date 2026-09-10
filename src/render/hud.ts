@@ -1,3 +1,4 @@
+import { BARRIER_LABELS } from '../world/exit';
 import { drawChart, drawSectorMap } from './chart';
 import type { Game } from '../game';
 import { HULL_MAX, BOOST_MAX } from '../constants';
@@ -31,17 +32,44 @@ export function drawHud(
   ctx.scale(scale, scale);
   ctx.textBaseline = 'top';
 
-  // Objective first; score is secondary to knowing how to escape.
-  ctx.fillStyle = 'rgba(4,12,22,0.85)'; ctx.fillRect(10, 8, 240, 94);
-  ctx.textAlign = 'left';
-  ctx.fillStyle = game.gate.active ? '#76f0a6' : '#41ffe0';
-  ctx.font = `bold 20px ${FONT}`;
-  ctx.fillText(game.gate.active ? 'REACH THE EXIT' : `GEMS ${game.gemsCollected} / ${game.gemCount}`, 20, 16);
+  // Keep the escape target visible throughout the run, before the barrier opens.
+  const gemsLeft = Math.max(0, game.escapeGemTarget - game.thrustGems);
+  const engineReady = gemsLeft === 0;
+  const engineColor = engineReady ? '#5dff8a' : '#ffd078';
+  ctx.fillStyle = 'rgba(4,12,22,0.9)'; ctx.fillRect(10, 8, 270, 171);
+  ctx.textAlign = 'left'; ctx.fillStyle = engineColor; ctx.font = `bold 17px ${FONT}`;
+  ctx.fillText(engineReady ? 'ESCAPE THRUST READY' : 'BUILD ESCAPE THRUST', 20, 16);
+  ctx.font = `bold 15px ${FONT}`;
+  ctx.fillText(`GEM POWER  ${game.thrustGems} / ${game.escapeGemTarget}`, 20, 41);
+  ctx.fillStyle = '#26363f'; ctx.fillRect(20, 63, 248, 6);
+  ctx.fillStyle = engineColor;
+  ctx.fillRect(20, 63, 248 * Math.min(1, game.thrustGems / game.escapeGemTarget), 6);
+  ctx.font = `12px ${FONT}`;
+  ctx.fillText(engineReady ? 'Hold boost through white holes' : `${gemsLeft} more to recommended thrust`, 20, 78);
+  ctx.fillStyle = '#a8bdc9'; ctx.font = `11px ${FONT}`;
+  ctx.fillText(`Small +1 · big +3 · thrust ${Math.round(game.player.engineMultiplier * 100)}%`, 20, 96);
+  ctx.fillStyle = '#ffb875'; ctx.font = `bold 14px ${FONT}`;
+  ctx.fillText(`ANTIMATTER  ${game.antimatter}`, 20, 117);
   ctx.font = `12px ${FONT}`; ctx.fillStyle = '#a8bdc9';
-  ctx.fillText(game.gate.active ? 'Follow the green exit arrow' : 'Scavenge asteroid clouds', 20, 44);
-  if (!game.gate.active) ctx.fillText('and landmarks', 20, 60);
+  ctx.fillText(`${BARRIER_LABELS[game.gate.blasts]} · ${game.gate.blasts}/5 blasts`, 20, 138);
   ctx.font = `11px ${FONT}`; ctx.fillStyle = '#738e9e';
-  ctx.fillText(`Score ${game.score}  ·  ×${game.player.mult}`, 20, 80, 220);
+  ctx.fillText(`Score ${game.score}  ·  ×${game.player.mult}`, 20, 158, 248);
+  if (game.lastBlastAt >= 0 && game.playT - game.lastBlastAt < 4) {
+    ctx.fillStyle = '#ffce99'; ctx.font = `bold 14px ${FONT}`;
+    ctx.fillText('ROCK SHARDS BLASTED AWAY', 20, 190);
+  } else if (game.lastGemAt >= 0 && game.playT - game.lastGemAt < 1.4) {
+    ctx.fillStyle = '#41ffe0'; ctx.font = `bold 14px ${FONT}`;
+    ctx.fillText('ENGINE THRUST INCREASED', 20, 190);
+  }
+
+  if (game.shieldRemaining > 0) {
+    ctx.fillStyle = '#a8cfff'; ctx.font = `bold 13px ${FONT}`;
+    ctx.fillText(`INVULNERABLE  ${game.shieldRemaining.toFixed(1)}s`, 20, 236);
+  }
+  if (game.magnetRemaining > 0) {
+    ctx.fillStyle = '#f48ed5'; ctx.font = `bold 13px ${FONT}`;
+    ctx.fillText(`MAGNETISM  ${Math.ceil(game.magnetRemaining)}s`, 20, 213);
+  }
 
   if (game.discovery && game.playT - game.discoveredAt < 5) {
     const l = game.discovery, age = game.playT - game.discoveredAt;
@@ -74,12 +102,12 @@ export function drawHud(
 
   drawMinimap(ctx, game, sw);
   drawHunterArrow(ctx, game, w, h, scale);
-  if (game.gate.active) drawGateArrow(ctx, game, w, h, scale);
+  if (game.gate.active || game.antimatter > 0) drawGateArrow(ctx, game, w, h, scale);
 
   // Status banners (top-center)
   ctx.textAlign = 'center';
   ctx.font = `bold 16px ${FONT}`;
-  const banished = game.hunters.filter((hn) => game.respawning(hn));
+  const banished = game.hunters.filter((hn) => hn.body.isEnabled() && game.respawning(hn));
   if (game.state === 'playing' && banished.length > 0) {
     const soonest = Math.min(...banished.map((hn) => hn.respawnAt));
     const left = Math.ceil(soonest - game.playT);
@@ -105,14 +133,15 @@ export function drawHud(
     const a = age < 0.4 ? age / 0.4 : age > 3.2 ? (4 - age) / 0.8 : 1;
     ctx.fillStyle = `rgba(255,140,0,${0.9 * a})`;
     ctx.fillText('WATCH OUT — HUNTER CAN NOW DASH', sw / 2, 16);
-  } else if (game.state === 'playing' && game.playT < game.difficulty.hunterWarmup) {
+  } else if (game.state === 'playing' && game.hunters.some(h => h.body.isEnabled()) && game.playT < game.difficulty.hunterWarmup) {
     const left = Math.ceil(game.difficulty.hunterWarmup - game.playT);
     const noun = game.hunters.length > 1 ? 'HUNTERS' : 'HUNTER';
     ctx.fillStyle = `rgba(255,90,90,${0.6 + 0.4 * Math.sin(game.time * 6)})`;
     ctx.fillText(`${noun} ONLINE IN ${left}`, sw / 2, 16);
   } else if (game.gate.active && game.state === 'playing') {
-    ctx.fillStyle = `rgba(93,255,138,${0.7 + 0.3 * Math.sin(game.time * 5)})`;
-    ctx.fillText('EXIT GATE ONLINE — RUN!', sw / 2, 16);
+    ctx.fillStyle = engineColor;
+    ctx.font = `bold 14px ${FONT}`;
+    ctx.fillText(engineReady ? 'BREACH OPEN · HOLD BOOST' : `LOW THRUST · COLLECT ${gemsLeft} MORE GEMS`, sw / 2, 16);
   }
 
   // Close call flash — independent banner below the main status row
@@ -215,7 +244,7 @@ function drawHunterArrow(
   if (game.state !== 'playing') return;
   const pp = game.player.body.translation();
   for (const hunter of game.hunters) {
-    if (game.respawning(hunter)) continue;
+    if (!hunter.body.isEnabled() || game.respawning(hunter)) continue;
     const hp = hunter.body.translation();
     const dist = Math.hypot(hp.x - pp.x, hp.y - pp.y);
     // Pulse faster as the hunter closes in
@@ -232,7 +261,8 @@ function drawGateArrow(
   scale: number,
 ): void {
   if (game.state !== 'playing') return;
-  drawEdgeArrow(ctx, game, w, h, scale, game.gate.x, game.gate.y, '#5dff8a', 4);
+  const target = game.player.body.translation().x < game.gate.layout.barrier.x ? game.gate.layout.mouth : game.gate;
+  drawEdgeArrow(ctx, game, w, h, scale, target.x, target.y, '#5dff8a', 4);
 }
 
 export function drawOverlay(
@@ -273,16 +303,16 @@ export function drawOverlay(
     }
 
     ctx.font = `bold 20px ${FONT}`; ctx.fillStyle = '#e8f4ff';
-    ctx.fillText(`Collect ${game.gemCount} gems. Then escape.`, sw / 2, cy - 65);
+    ctx.fillText('Build thrust. Blast a breach. Escape.', sw / 2, cy - 65);
     ctx.font = `14px ${FONT}`; ctx.fillStyle = '#acbfcb';
-    ctx.fillText('Fly into cyan diamonds to collect them. Avoid the red hunter.', sw / 2, cy - 34);
-    ctx.fillText('Station walls and rocks are solid. Fly through their gaps.', sw / 2, cy - 9);
+    ctx.fillText('White holes push you back. Collect gems to make your engine stronger.', sw / 2, cy - 34);
+    ctx.fillText(`Escape target: ${game.escapeGemTarget} gem power + boost. Blast the rocks with 3–5 capsules.`, sw / 2, cy - 9);
     ctx.fillStyle = '#d8e8f0'; ctx.font = `bold 16px ${FONT}`;
     ctx.fillText(game.input.touchCapable ? (game.input.fixedJoystick ? 'Drag the bottom-right stick to fly     Second finger boosts' : 'Touch and hold to steer + fly     Second finger boosts') : game.mouseSteer ? 'Aim with mouse     Hold click to fly     SPACE  boost' : 'W  fly forward     A / D  turn     SPACE  boost', sw / 2, cy + 43);
     ctx.fillStyle = '#96acb9'; ctx.font = `13px ${FONT}`;
     ctx.fillText(game.input.touchCapable ? 'Use the Pause and Map buttons during flight' : `S  reverse   ·   P  pause   ·   M  mouse steering (${game.mouseSteer ? 'ON' : 'OFF'})`, sw / 2, cy + 73);
     ctx.fillStyle = '#8ed2df';
-    ctx.fillText('Use “Map & legend” for the map and object meanings.', sw / 2, cy + 117);
+    ctx.fillText('At the barrier: E / Detonate. Hold boost through the white holes.', sw / 2, cy + 117);
 
     if (!game.input.touchCapable) {
       // Difficulty selector: [1] EASY  [2] NORMAL  [3] HARD  [4] EXTREME
@@ -353,7 +383,7 @@ export function drawOverlay(
     ctx.font = `16px ${FONT}`;
     ctx.fillStyle = 'rgba(232,244,255,0.7)';
     ctx.fillText(
-      `gems ${game.gemsCollected}/${game.gemCount}   ·   survived ${Math.floor(game.playT)}s   ·   hull healed ${Math.round(game.player.healedTotal)}`,
+      `gem power ${game.thrustGems}/${game.escapeGemTarget}   ·   survived ${Math.floor(game.playT)}s   ·   hull healed ${Math.round(game.player.healedTotal)}`,
       sw / 2,
       sh / 2 + 46,
     );

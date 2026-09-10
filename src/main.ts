@@ -1,3 +1,5 @@
+import { createCheatConsole } from './cheat-console';
+import { MAX_BLASTS } from './world/exit';
 import RAPIER from '@dimforge/rapier2d-compat';
 import { Game } from './game';
 
@@ -21,7 +23,10 @@ async function boot(): Promise<void> {
   const seedParam = new URLSearchParams(location.search).get('seed');
   const seed = seedParam !== null && /^\d{1,10}$/.test(seedParam) ? Number(seedParam) >>> 0 : (Math.random() * 2 ** 31) | 0;
   game.reset(seed);
+  const cheatConsole = createCheatConsole(game);
 
+  const detonateButton = document.getElementById('detonate-button') as HTMLButtonElement;
+  detonateButton.addEventListener('click', () => { game.detonate(); detonateButton.blur(); });
   const mapButton = document.getElementById('map-button') as HTMLButtonElement;
   const launchButton = document.getElementById('launch-button') as HTMLButtonElement;
   const pauseButton = document.getElementById('pause-button') as HTMLButtonElement;
@@ -49,6 +54,9 @@ async function boot(): Promise<void> {
   });
   let uiState = '';
   function syncControls(): void {
+    detonateButton.hidden = game.state !== 'playing' || game.chartOpen || !game.nearBarrier || game.gate.blasts >= MAX_BLASTS;
+    detonateButton.disabled = !game.canDetonate;
+    detonateButton.textContent = game.antimatter > 0 ? `Detonate · E (${game.antimatter})` : 'Find antimatter capsules';
     const w = canvas.clientWidth, h = canvas.clientHeight;
     const key = `${game.input.fixedJoystick}:${game.state}:${game.chartOpen}:${game.difficultyIndex}:${game.mapH}:${w}:${h}`;
     if (key === uiState) return;
@@ -95,13 +103,14 @@ async function boot(): Promise<void> {
     acc += Math.min((now - last) / 1000, 0.25);
     last = now;
     while (acc >= DT) {
-      game.fixedUpdate(DT);
+      if (!cheatConsole.isOpen()) game.fixedUpdate(DT);
       acc -= DT;
     }
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     game.render(ctx, canvas.clientWidth, canvas.clientHeight);
     syncControls();
+    cheatConsole.sync();
     const offset = game.input.joystickOffset;
     joystickKnob.style.transform = `translate(${offset.x * 0.65}px, ${offset.y * 0.65}px)`;
     requestAnimationFrame(frame);

@@ -1,6 +1,6 @@
 import type { RigidBody, Collider } from '@dimforge/rapier2d-compat';
 
-export type PickupType = 'gem' | 'orb' | 'shield' | 'boost';
+export type PickupType = 'gem' | 'orb' | 'shield' | 'boost' | 'antimatter' | 'magnet';
 
 export interface Player {
   kind: 'player';
@@ -14,6 +14,7 @@ export interface Player {
   alive: boolean;
   /** Total hull restored by orbs — healed hull only earns half win bonus. */
   healedTotal: number;
+  engineMultiplier: number;
 }
 
 export interface Hunter {
@@ -64,12 +65,22 @@ export interface Pickup {
   bonus: boolean;
 }
 
+export interface BarrierChunk {
+  kind: 'barrier';
+  shape: import('../world/generate').Structure;
+  collider: Collider;
+  destroyedAt: number;
+}
+
 export interface Gate {
   kind: 'gate';
   collider: Collider;
   x: number;
   y: number;
   active: boolean;
+  layout: import('../world/exit').ExitLayout;
+  chunks: BarrierChunk[];
+  blasts: number;
 }
 
 export interface Wall {
@@ -83,6 +94,8 @@ export interface GravityWell {
   radius: number;
   /** 1 = black hole (pulls, deadly core), -1 = white hole (repels). */
   polarity: 1 | -1;
+  /** Exit repulsors have no tangential slingshot and dissipate approach momentum. */
+  exit?: boolean;
 }
 
-export type Entity = Player | Hunter | Asteroid | Pickup | Gate | Wall;
+export type Entity = Player | Hunter | Asteroid | Pickup | Gate | Wall | BarrierChunk;

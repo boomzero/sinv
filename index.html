@@ -38,6 +38,8 @@
       #map-button { right: 16px; top: 16px; transform-origin: top right; }
       #launch-button { left: 50%; transform-origin: top center; background: #174439; border-color: #76f0a6; }
       #pause-button { right: 16px; bottom: 16px; transform-origin: bottom right; }
+      #detonate-button { left: 16px; bottom: 84px; border-color: #ffb875; background: #392719; min-height: 44px; }
+      #detonate-button:disabled { color: #ac9986; cursor: default; }
       #retry-button { left: 50%; transform-origin: top center; background: #174439; border-color: #76f0a6; }
       #joystick-option { left: 16px; bottom: 16px; min-height: 44px; }
       #joystick-option[aria-pressed="true"] { border-color: #76f0a6; background: #174439; }
@@ -99,6 +101,7 @@
     <button id="map-button" class="game-button" type="button" aria-controls="game" aria-expanded="false">Map &amp; legend <small>Tab</small></button>
     <button id="launch-button" class="game-button" type="button" hidden>Launch <small>Enter</small></button>
     <button id="pause-button" class="game-button" type="button" hidden>Pause</button>
+    <button id="detonate-button" class="game-button" type="button" hidden>Detonate · E</button>
     <button id="retry-button" class="game-button" type="button" hidden>Fly again</button>
     <button id="joystick-option" class="game-button" type="button" aria-pressed="false" hidden>Fixed joystick: Off</button>
     <div id="joystick" aria-hidden="true" hidden><div id="joystick-knob"></div></div>

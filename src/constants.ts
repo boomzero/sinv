@@ -104,3 +104,11 @@ export const CLOSE_CALL_DIST = 90;        // units from hunter center — "dange
 export const CLOSE_CALL_ESCAPE_DIST = 140; // distance that confirms the escape
 export const CLOSE_CALL_SCORE = 300;       // base score awarded per successful escape
 export const CLOSE_CALL_COOLDOWN = 10.0;   // seconds of lockout after scoring
+
+// Temporary pickup attraction; collecting another capsule refreshes the timer.
+export const MAGNET_DURATION = 12;
+export const MAGNET_RADIUS = 240;
+export const MAGNET_SPEED = 300;
+export const MAGNET_COUNT = 5;
+
+export const SHIELD_INVULNERABILITY = 1; // seconds after absorbing a damaging hit

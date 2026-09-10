@@ -12,3 +12,8 @@ export { createPlayer } from '../src/entities/player';
 export { drawStarfield } from '../src/render/starfield';
 export { drawLandmark } from '../src/render/landmarks';
 export { readSaved, writeSaved } from '../src/util/storage';
+
+export { exitLayout, outsideExit } from '../src/world/exit';
+export { createPickup } from '../src/entities/pickup';
+export { hunterMaxSpeed } from '../src/entities/hunter';
+export { runCheatCommand } from '../src/cheat-commands';

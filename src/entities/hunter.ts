@@ -70,12 +70,13 @@ export function hunterMaxSpeed(
   playTime: number,
   orbsCollected: number,
   speedMult: number,
+  escalationMult = 1,
 ): number {
   return (
     Math.min(
       HUNTER_SPEED_CAP,
       HUNTER_BASE_SPEED +
-        (playTime / 15) * HUNTER_SPEED_PER_15S +
+        (playTime / 15) * HUNTER_SPEED_PER_15S * escalationMult +
         orbsCollected * HUNTER_SPEED_PER_ORB,
     ) * speedMult
   );
@@ -105,7 +106,7 @@ export function updateHunter(
   const vel = body.linvel();
   const ppos = player.body.translation();
   const pvel = player.body.linvel();
-  const maxSpeed = hunterMaxSpeed(playTime, orbsCollected, difficulty.hunterSpeedMult);
+  const maxSpeed = hunterMaxSpeed(playTime, orbsCollected, difficulty.hunterSpeedMult, difficulty.hunterEscalationMult);
 
   const predictionTime = Math.min(1.2, Math.hypot(ppos.x - pos.x, ppos.y - pos.y) / maxSpeed);
   const predicted = { x: ppos.x + pvel.x * predictionTime, y: ppos.y + pvel.y * predictionTime };
