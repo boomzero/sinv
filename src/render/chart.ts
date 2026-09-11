@@ -3,7 +3,33 @@ import { drawExitStructure } from './exit';
 import type { Game } from '../game';
 import { drawSymbol, OBJECT_INFO, type SymbolKind } from './symbols';
 import { drawLandmark } from './landmarks';
+import { materialVersion } from './materials';
 import { hunterHeading } from '../entities/hunter';
+
+// Keep chart artwork at its display resolution instead of downsampling multi-
+// megapixel landmark textures every frame. Moving objects remain live below.
+const mapArt = new WeakMap<Game['landmarks'][number], Map<number, { version: number; canvas: HTMLCanvasElement }>>();
+function drawMapLandmark(ctx: CanvasRenderingContext2D, l: Game['landmarks'][number], zoom: number): void {
+  let sizes = mapArt.get(l);
+  if (!sizes) { sizes = new Map(); mapArt.set(l, sizes); }
+  const scale = zoom * Math.min(2, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1);
+  const extent = l.radius + 122;
+  const size = Math.ceil(extent * 2 * scale);
+  let art = sizes.get(size);
+  if (!art || art.version !== materialVersion()) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const surface = canvas.getContext('2d')!;
+    surface.scale(size / (extent * 2), size / (extent * 2));
+    surface.translate(extent - l.x, extent - l.y);
+    drawLandmark(surface, l, 0, false);
+    art = { version: materialVersion(), canvas };
+    // Bound memory across repeated window resizes.
+    if (sizes.size >= 2) sizes.clear();
+    sizes.set(size, art);
+  }
+  ctx.drawImage(art.canvas, l.x - extent, l.y - extent, extent * 2, extent * 2);
+}
 
 /** The chart and minimap share geometry, colors and object symbols. */
 export function drawSectorMap(ctx: CanvasRenderingContext2D, game: Game, zoom: number, compact = false): void {
@@ -32,7 +58,7 @@ export function drawSectorMap(ctx: CanvasRenderingContext2D, game: Game, zoom: n
     }
     ctx.closePath(); ctx.fill(); ctx.restore();
   }
-  for (const l of game.landmarks) drawLandmark(ctx, l, game.time, false);
+  for (const l of game.landmarks) drawMapLandmark(ctx, l, zoom);
   drawExitStructure(ctx, game, true);
   for (const well of game.wells) {
     ctx.fillStyle = well.polarity === 1 ? '#a866e733' : '#bef7ff33';

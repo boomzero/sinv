@@ -17,3 +17,7 @@ export { exitLayout, outsideExit } from '../src/world/exit';
 export { createPickup } from '../src/entities/pickup';
 export { hunterMaxSpeed } from '../src/entities/hunter';
 export { runCheatCommand } from '../src/cheat-commands';
+
+export { drawExitStructure } from '../src/render/exit';
+export { drawSectorMap } from '../src/render/chart';
+export { FrameStats } from '../src/frame-stats';

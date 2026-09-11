@@ -1,4 +1,4 @@
-import { paintMaterial } from './materials';
+import { materialVersion, paintMaterial } from './materials';
 import type { Game } from '../game';
 import type { Structure } from '../world/generate';
 
@@ -11,11 +11,37 @@ function polygon(ctx: CanvasRenderingContext2D, s: Structure): void {
   ctx.closePath();
 }
 
+const cache = new WeakMap<Game['gate'], { version: number; blasts: number; canvas: HTMLCanvasElement; x: number; y: number }>();
+
 /** Draw exact physical outlines, including the widening gap, at any map scale. */
 export function drawExitStructure(ctx: CanvasRenderingContext2D, game: Game, compact = false): void {
+  if (compact) { paintExitStructure(ctx, game, true); return; }
+  const version = materialVersion();
+  let entry = cache.get(game.gate);
+  if (!entry || entry.version !== version || entry.blasts !== game.gate.blasts) {
+    const shapes = [...game.gate.layout.walls, ...game.gate.layout.chunks];
+    const xs = shapes.flatMap(s => s.verts.filter((_, i) => i % 2 === 0).map(x => s.x + x));
+    const ys = shapes.flatMap(s => s.verts.filter((_, i) => i % 2 === 1).map(y => s.y + y));
+    const x = Math.floor(Math.min(...xs)) - 4, y = Math.floor(Math.min(...ys)) - 4;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(Math.max(...xs) - x) + 4;
+    canvas.height = Math.ceil(Math.max(...ys) - y) + 4;
+    const surface = canvas.getContext('2d')!;
+    surface.translate(-x, -y);
+    paintExitStructure(surface, game, false);
+    entry = { version, blasts: game.gate.blasts, canvas, x, y };
+    cache.set(game.gate, entry);
+  }
+  ctx.drawImage(entry.canvas, entry.x, entry.y);
+  if (game.gate.chunks.some(c => c.destroyedAt >= 0 && game.playT - c.destroyedAt < 1.5)) {
+    paintExitStructure(ctx, game, false, true);
+  }
+}
+
+function paintExitStructure(ctx: CanvasRenderingContext2D, game: Game, compact: boolean, debris = false): void {
   ctx.save();
   ctx.lineWidth = compact ? 10 : 2;
-  for (const wall of game.gate.layout.walls) {
+  for (const wall of debris ? [] : game.gate.layout.walls) {
     polygon(ctx, wall); ctx.fillStyle = '#233943'; ctx.fill();
     ctx.strokeStyle = '#7794a2'; ctx.stroke();
     if (!compact) {
@@ -30,7 +56,7 @@ export function drawExitStructure(ctx: CanvasRenderingContext2D, game: Game, com
   }
   for (const [i, chunk] of game.gate.chunks.entries()) {
     const age = chunk.destroyedAt < 0 ? -1 : game.playT - chunk.destroyedAt;
-    if (age >= 1.5 || (compact && age >= 0)) continue;
+    if (debris ? age < 0 || age >= 1.5 : age >= 0) continue;
     ctx.save();
     if (age >= 0) {
       ctx.globalAlpha = 1 - age / 1.5;

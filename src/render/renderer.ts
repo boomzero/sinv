@@ -65,18 +65,24 @@ export function drawScene(
   ctx.save();
   game.camera.apply(ctx, w, h);
 
+  const cx = game.camera.x - game.camera.shakeX, cy = game.camera.y - game.camera.shakeY;
+  const visible = (x: number, y: number, radius: number): boolean =>
+    Math.abs(x - cx) <= w / 2 + radius + 2 && Math.abs(y - cy) <= h / 2 + radius + 2;
+
   drawBounds(ctx, game.time, game.mapW, game.mapH);
-  drawExitStructure(ctx, game);
-  for (const well of game.wells) drawWell(ctx, well, game.time, game.debugDraw);
+  if (visible(game.gate.x - 460, game.gate.y, 850)) drawExitStructure(ctx, game);
+  for (const well of game.wells) if (visible(well.x, well.y, well.radius + 30)) drawWell(ctx, well, game.time, game.debugDraw);
   for (const landmark of game.landmarks) {
-    if (Math.abs(landmark.x - game.camera.x) < w / 2 + landmark.radius + 150 &&
-        Math.abs(landmark.y - game.camera.y) < h / 2 + landmark.radius + 150) drawLandmark(ctx, landmark, game.time);
+    if (visible(landmark.x, landmark.y, landmark.radius + 150)) drawLandmark(ctx, landmark, game.time);
   }
   drawGate(ctx, game);
   for (const p of game.pickups) {
-    if (!p.taken) drawPickup(ctx, p, game.time);
+    if (!p.taken && visible(p.x, p.y, 64)) drawPickup(ctx, p, game.time);
   }
-  for (const a of game.asteroids) drawAsteroid(ctx, a);
+  for (const a of game.asteroids) {
+    const pos = a.body.translation();
+    if (visible(pos.x, pos.y, a.radius + 4)) drawAsteroid(ctx, a);
+  }
   game.particles.draw(ctx);
   for (const hunter of game.hunters) if (hunter.body.isEnabled()) drawHunter(ctx, game, hunter);
   if (game.magnetRemaining > 0) {

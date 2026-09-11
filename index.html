@@ -43,6 +43,21 @@
       #retry-button { left: 50%; transform-origin: top center; background: #174439; border-color: #76f0a6; }
       #joystick-option { left: 16px; bottom: 16px; min-height: 44px; }
       #joystick-option[aria-pressed="true"] { border-color: #76f0a6; background: #174439; }
+      #fps-option { right: 16px; bottom: 76px; min-height: 44px; }
+      #fps-option[aria-pressed="true"] { border-color: #76f0a6; background: #174439; }
+      #fps-counter {
+        position: fixed;
+        right: 16px;
+        top: 76px;
+        z-index: 3;
+        padding: 6px 8px;
+        border-radius: 4px;
+        background: #04101ee6;
+        color: #bcebd4;
+        font: 12px ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        pointer-events: none;
+      }
       #joystick {
         position: fixed;
         right: max(24px, env(safe-area-inset-right));
@@ -104,6 +119,8 @@
     <button id="detonate-button" class="game-button" type="button" hidden>Detonate · E</button>
     <button id="retry-button" class="game-button" type="button" hidden>Fly again</button>
     <button id="joystick-option" class="game-button" type="button" aria-pressed="false" hidden>Fixed joystick: Off</button>
+    <button id="fps-option" class="game-button" type="button" aria-pressed="false" aria-controls="fps-counter" hidden>FPS counter: Off</button>
+    <div id="fps-counter" title="Frame rate and longest frame interval over the last second" hidden></div>
     <div id="joystick" aria-hidden="true" hidden><div id="joystick-knob"></div></div>
     <div id="difficulty-controls" aria-label="Difficulty" hidden>
       <button class="difficulty-button" type="button">Easy</button>

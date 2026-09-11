@@ -2,6 +2,8 @@ import { createCheatConsole } from './cheat-console';
 import { MAX_BLASTS } from './world/exit';
 import RAPIER from '@dimforge/rapier2d-compat';
 import { Game } from './game';
+import { FrameStats } from './frame-stats';
+import { readSaved, writeSaved } from './util/storage';
 
 const DT = 1 / 60;
 
@@ -52,15 +54,44 @@ async function boot(): Promise<void> {
     game.input.setFixedJoystick(!game.input.fixedJoystick);
     joystickOption.blur();
   });
+  const fpsOption = document.getElementById('fps-option') as HTMLButtonElement;
+  const fpsCounter = document.getElementById('fps-counter') as HTMLDivElement;
+  const frameStats = new FrameStats();
+  let showFps = readSaved('sinv-show-fps') === 'true';
+  function syncFps(): void {
+    frameStats.reset();
+    fpsCounter.hidden = !showFps;
+    fpsCounter.textContent = 'Measuring FPS…';
+    fpsOption.textContent = `FPS counter: ${showFps ? 'On' : 'Off'}`;
+    fpsOption.setAttribute('aria-pressed', String(showFps));
+  }
+  fpsOption.addEventListener('click', () => {
+    showFps = !showFps;
+    writeSaved('sinv-show-fps', String(showFps));
+    syncFps();
+    fpsOption.blur();
+  });
+  document.addEventListener('visibilitychange', () => frameStats.reset());
+  syncFps();
   let uiState = '';
+  let detonateState = '';
+  let joystickTransform = '';
   function syncControls(): void {
-    detonateButton.hidden = game.state !== 'playing' || game.chartOpen || !game.nearBarrier || game.gate.blasts >= MAX_BLASTS;
-    detonateButton.disabled = !game.canDetonate;
-    detonateButton.textContent = game.antimatter > 0 ? `Detonate · E (${game.antimatter})` : 'Find antimatter capsules';
+    const detonateHidden = game.state !== 'playing' || game.chartOpen || !game.nearBarrier || game.gate.blasts >= MAX_BLASTS;
+    const canDetonate = game.canDetonate;
+    const detonateKey = `${detonateHidden}:${canDetonate}:${game.antimatter}`;
+    if (detonateKey !== detonateState) {
+      detonateState = detonateKey;
+      detonateButton.hidden = detonateHidden;
+      detonateButton.disabled = !canDetonate;
+      detonateButton.textContent = game.antimatter > 0 ? `Detonate · E (${game.antimatter})` : 'Find antimatter capsules';
+    }
     const w = canvas.clientWidth, h = canvas.clientHeight;
     const key = `${game.input.fixedJoystick}:${game.state}:${game.chartOpen}:${game.difficultyIndex}:${game.mapH}:${w}:${h}`;
     if (key === uiState) return;
     uiState = key;
+    fpsOption.hidden = game.chartOpen || (game.state !== 'menu' && game.state !== 'paused');
+    frameStats.reset();
     joystickOption.hidden = !game.input.touchCapable || game.chartOpen ||
       (game.state !== 'menu' && game.state !== 'paused');
     joystickOption.textContent = `Fixed joystick: ${game.input.fixedJoystick ? 'On' : 'Off'}`;
@@ -79,6 +110,7 @@ async function boot(): Promise<void> {
     mapButton.innerHTML = game.chartOpen ? 'Close map <small>Esc</small>' : 'Map &amp; legend <small>Tab</small>';
     mapButton.setAttribute('aria-expanded', String(game.chartOpen));
     mapButton.style.top = `${game.chartOpen || game.state === 'menu' ? 16 : (28 + 170 * game.mapH / game.mapW) * scale}px`;
+    fpsCounter.style.top = `${game.chartOpen || game.state === 'menu' ? 76 : (28 + 170 * game.mapH / game.mapW) * scale + 56}px`;
     mapButton.style.transform = `scale(${buttonScale})`;
     launchButton.hidden = game.state !== 'menu' || game.chartOpen;
     launchButton.style.top = `${game.input.touchCapable ? h / 2 + 125 * scale + 54 : h / 2 + 227 * scale}px`;
@@ -112,7 +144,15 @@ async function boot(): Promise<void> {
     syncControls();
     cheatConsole.sync();
     const offset = game.input.joystickOffset;
-    joystickKnob.style.transform = `translate(${offset.x * 0.65}px, ${offset.y * 0.65}px)`;
+    const transform = `translate(${offset.x * 0.65}px, ${offset.y * 0.65}px)`;
+    if (transform !== joystickTransform) {
+      joystickTransform = transform;
+      joystickKnob.style.transform = transform;
+    }
+    if (showFps && !document.hidden) {
+      const text = frameStats.sample(now);
+      if (text !== null) fpsCounter.textContent = text;
+    }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

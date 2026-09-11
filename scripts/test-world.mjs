@@ -14,7 +14,17 @@ const saved = new Map();
 globalThis.localStorage = { getItem: k => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, v) };
 try {
   await build({ configFile: false, logLevel: 'silent', publicDir: false, build: { outDir: temp, lib: { entry: 'scripts/test-entry.ts', formats: ['es'], fileName: () => 'world.mjs' } } });
-  const { generateWorld, distanceToStructure, DIFFICULTIES, Game, RAPIER, exitLayout, outsideExit, Navigation, PhysicsContext, createWalls, createStructure, createAsteroid, createHunter, updateHunter, createPlayer, drawStarfield, drawLandmark, readSaved, writeSaved } = await import(pathToFileURL(join(temp, 'world.mjs')));
+  const { FrameStats, generateWorld, distanceToStructure, DIFFICULTIES, Game, RAPIER, exitLayout, outsideExit, Navigation, PhysicsContext, createWalls, createStructure, createAsteroid, createHunter, updateHunter, createPlayer, drawStarfield, drawLandmark, drawExitStructure, drawSectorMap, readSaved, writeSaved } = await import(pathToFileURL(join(temp, 'world.mjs')));
+  const stats = new FrameStats();
+  assert.equal(stats.sample(0), null);
+  for (let i = 1; i < 60; i++) assert.equal(stats.sample(i * 1000 / 60), null);
+  assert.equal(stats.sample(1000), '60 FPS · max 16.7 ms');
+  stats.reset();
+  assert.equal(stats.sample(100000), null, 'background time is excluded after reset');
+  for (let i = 1; i < 120; i++) stats.sample(100000 + i * 1000 / 120);
+  assert.equal(stats.sample(101000), '120 FPS · max 8.3 ms');
+  assert.equal(stats.sample(102000), '1 FPS · max 1000.0 ms', 'foreground stalls remain visible');
+  console.log('PASS: FPS counts real frame intervals at 60/120 Hz, reports stalls and resets after backgrounding.');
   const seen = new Set(), combinations = new Set(), navigationFixtures = new Map();
   const count = Number(process.env.SINV_TEST_SEEDS ?? 100);
   for (const difficulty of DIFFICULTIES) {
@@ -116,7 +126,7 @@ try {
   // old 880×880 texture and 1200×1200 gradient rectangles.
   const makeContext = () => {
     const images = [], fills = [], rotations = [], patterns = [];
-    return { images, fills, rotations, patterns, save() {}, restore() {}, translate() {}, rotate: a => rotations.push(a), beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, clip() {}, fill() {}, stroke() {}, fillText() {},
+    return { images, fills, rotations, patterns, save() {}, restore() {}, translate() {}, rotate: a => rotations.push(a), beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, clip() {}, scale() {}, rect() {}, arc() {}, strokeRect() {}, fill() {}, stroke() {}, fillText() {},
       createPattern: (tile, repetition) => { patterns.push({ tile, repetition }); return {}; },
       drawImage: (...args) => images.push(args), fillRect: (...args) => fills.push(args),
       createLinearGradient: () => ({ addColorStop() {} }), createRadialGradient: () => ({ addColorStop() {} }) };
@@ -152,6 +162,49 @@ try {
     assert.equal(cachedScene.images[0][0], canvas);
   }
   console.log('PASS: all 8 rotated landmark variants have complete, cached material coverage at fixed texture density.');
+
+  const exitFixture = () => {
+    const layout = exitLayout(6800, 5100);
+    return { playT: 0, gate: { layout, blasts: 0, chunks: layout.chunks.map(shape => ({ shape, destroyedAt: -1 })) } };
+  };
+  const exitGame = exitFixture();
+  const coldExit = makeContext();
+  drawExitStructure(coldExit, exitGame);
+  const intactImage = coldExit.images[0][0];
+  const warmedCount = canvases.length;
+  const warmExit = makeContext();
+  drawExitStructure(warmExit, exitGame);
+  assert.equal(canvases.length, warmedCount);
+  assert.equal(warmExit.images[0][0], intactImage);
+  assert.equal(warmExit.patterns.length, 0, 'steady-state exit uses a bitmap, not live material painting');
+  exitGame.gate.blasts = 1;
+  exitGame.gate.chunks[0].destroyedAt = 0;
+  const debrisExit = makeContext();
+  drawExitStructure(debrisExit, exitGame);
+  assert.notEqual(debrisExit.images[0][0], intactImage, 'detonation rebuilds the remaining barrier');
+  assert.equal(debrisExit.patterns.length, 1, 'only the destroyed shard is painted live');
+  exitGame.playT = 2;
+  const settledExit = makeContext();
+  drawExitStructure(settledExit, exitGame);
+  assert.equal(settledExit.images[0][0], debrisExit.images[0][0]);
+  assert.equal(settledExit.patterns.length, 0, 'debris expires without rebuilding the static surface');
+  const newExit = makeContext();
+  drawExitStructure(newExit, exitFixture());
+  assert.notEqual(newExit.images[0][0], settledExit.images[0][0], 'restart does not retain the destroyed barrier');
+
+  const mapGame = { ...exitGame, mapW: 6800, mapH: 5100, time: 0,
+    landmarks: [...navigationFixtures.values()].map(f => f.l), asteroids: [], wells: [], pickups: [], hunters: [],
+    player: { body: { translation: () => ({ x: 100, y: 100 }) } } };
+  mapGame.gate.x = 6480; mapGame.gate.y = 4780;
+  const coldMap = makeContext();
+  drawSectorMap(coldMap, mapGame, 170 / 6800, true);
+  assert.ok(coldMap.images.every(([image]) => image.width < 200), 'minimap samples small artwork');
+  const mapCount = canvases.length;
+  const warmMap = makeContext();
+  drawSectorMap(warmMap, mapGame, 170 / 6800, true);
+  assert.equal(canvases.length, mapCount);
+  assert.deepEqual(warmMap.images, coldMap.images, 'minimap artwork is reused');
+  console.log('PASS: cached exit rendering, detonation, debris expiry, restart and small minimap artwork.');
 
   const renderBackground = cam => {
     const stars = [], images = [];

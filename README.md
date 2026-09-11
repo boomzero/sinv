@@ -13,6 +13,8 @@ Click Launch or press Enter. W/A/S/D fly, Space boosts, M toggles mouse steering
 
 On a touch screen, choose a difficulty with the on-screen selector, then hold a finger anywhere on the playfield to steer toward it and fly. Hold a second finger to boost. The **Pause** button doubles as **Resume**, and a paused run also resumes with a single tap anywhere on the playfield, so a run paused by switching apps is never stuck. Enable **Fixed joystick** on the menu or pause screen to steer and fly by dragging the bottom-right stick instead; return it to the center or release it to stop thrusting. This preference is saved for future visits. Touch controls retain full-size tap targets even when the game HUD scales down for a phone-sized viewport.
 
+Enable **FPS counter** on the launch or pause screen to show live frame rate and the longest frame interval over the last second. It is off by default and remembers your choice. The counter measures actual animation-frame intervals, including stutters, and resets after returning from a background tab.
+
 ## Scripts to try
 
 Run terminal commands from the project folder.
