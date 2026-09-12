@@ -3,9 +3,8 @@ import { MAX_BLASTS } from './world/exit';
 import RAPIER from '@dimforge/rapier2d-compat';
 import { Game } from './game';
 import { FrameStats } from './frame-stats';
+import { FixedStepAccumulator } from './fixed-step';
 import { readSaved, writeSaved } from './util/storage';
-
-const DT = 1 / 60;
 
 async function boot(): Promise<void> {
   await RAPIER.init();
@@ -71,7 +70,13 @@ async function boot(): Promise<void> {
     syncFps();
     fpsOption.blur();
   });
-  document.addEventListener('visibilitychange', () => frameStats.reset());
+  let last = performance.now();
+  const simulationClock = new FixedStepAccumulator();
+  document.addEventListener('visibilitychange', () => {
+    frameStats.reset();
+    simulationClock.reset();
+    last = performance.now();
+  });
   syncFps();
   let uiState = '';
   let detonateState = '';
@@ -128,16 +133,12 @@ async function boot(): Promise<void> {
     });
   }
 
-  let last = performance.now();
-  let acc = 0;
+  const update = (dt: number): void => {
+    if (!cheatConsole.isOpen()) game.fixedUpdate(dt);
+  };
   function frame(now: number): void {
-    // Clamp so a backgrounded tab doesn't trigger a catch-up death spiral
-    acc += Math.min((now - last) / 1000, 0.25);
+    simulationClock.advance((now - last) / 1000, update);
     last = now;
-    while (acc >= DT) {
-      if (!cheatConsole.isOpen()) game.fixedUpdate(DT);
-      acc -= DT;
-    }
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     game.render(ctx, canvas.clientWidth, canvas.clientHeight);

@@ -5,6 +5,7 @@ import { drawAsteroid } from './asteroids';
 import { drawSymbol, OBJECT_INFO } from './symbols';
 import { drawLandmark } from './landmarks';
 import { drawStarfield } from './starfield';
+import { drawBounds } from './bounds';
 import {
   MAGNET_RADIUS,
   PLAYER_RADIUS,
@@ -69,7 +70,7 @@ export function drawScene(
   const visible = (x: number, y: number, radius: number): boolean =>
     Math.abs(x - cx) <= w / 2 + radius + 2 && Math.abs(y - cy) <= h / 2 + radius + 2;
 
-  drawBounds(ctx, game.time, game.mapW, game.mapH);
+  drawBounds(ctx, game.time, game.mapW, game.mapH, cx, cy, w, h);
   if (visible(game.gate.x - 460, game.gate.y, 850)) drawExitStructure(ctx, game);
   for (const well of game.wells) if (visible(well.x, well.y, well.radius + 30)) drawWell(ctx, well, game.time, game.debugDraw);
   for (const landmark of game.landmarks) {
@@ -102,16 +103,6 @@ export function drawScene(
 
   if (game.debugDraw) drawDebugWorld(ctx, game);
 
-  ctx.restore();
-}
-
-function drawBounds(ctx: CanvasRenderingContext2D, time: number, mapW: number, mapH: number): void {
-  ctx.save();
-  ctx.strokeStyle = `rgba(120,80,255,${0.5 + 0.15 * Math.sin(time * 2)})`;
-  ctx.lineWidth = 3;
-  ctx.shadowColor = '#7850ff';
-  ctx.shadowBlur = 18;
-  ctx.strokeRect(0, 0, mapW, mapH);
   ctx.restore();
 }
 
