@@ -36,6 +36,8 @@ export function createPickup(
     taken: false,
     phase,
     bonus,
+    magnetVx: 0,
+    magnetVy: 0,
   };
   ctx.register(collider, pickup);
   return pickup;

@@ -63,6 +63,9 @@ export interface Pickup {
   phase: number; // animation offset
   /** Bonus gems (rings around gravity wells) are worth extra. */
   bonus: boolean;
+  /** Velocity accumulated while pulled by magnetism, in world units/second. */
+  magnetVx: number;
+  magnetVy: number;
 }
 
 export interface BarrierChunk {

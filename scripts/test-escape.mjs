@@ -228,6 +228,11 @@ try {
   assert.ok(game.magnetRemaining > 11.9);
   game.fixedUpdate(1 / 60);
   assert.ok(nearby.x < origin.x + 150, 'nearby pickup is physically attracted');
+  const firstPull = origin.x + 150 - nearby.x;
+  assert.ok(firstPull < 0.2, 'attraction starts gently instead of jumping to cruising speed');
+  const firstX = nearby.x;
+  game.fixedUpdate(1 / 60);
+  assert.ok(firstX - nearby.x > firstPull * 2, 'successive frames build speed under the magnetic force');
   assert.equal(far.x, origin.x + 300, 'out-of-range pickup stays still');
   for (let i = 0; i < 60; i++) game.fixedUpdate(1 / 60);
   assert.equal(nearby.taken, true, 'attracted gem collects via its moving sensor');
@@ -239,9 +244,26 @@ try {
   game.state = 'playing';
   game.consumePickup(add('magnet', 0));
   assert.equal(game.magnetRemaining, 12, 'second capsule refreshes instead of stacking duration');
+  const stopped = add('gem', 150);
+  game.attractPickups(1 / 60);
+  assert.ok(stopped.magnetVx < 0, 'an attracted pickup accumulates momentum');
+  const before = stopped.x;
   game.playT = game.magnetUntil;
-  const stopped = add('gem', 150), before = stopped.x;
   game.fixedUpdate(1 / 60); assert.equal(stopped.x, before, 'attraction stops when the skill expires');
+  assert.equal(stopped.magnetVx, 0, 'expiry clears accumulated momentum');
+
+  game.magnetUntil = game.playT + 12;
+  const turning = add('gem', 180);
+  for (let i = 0; i < 10; i++) game.attractPickups(1 / 60);
+  const turningX = turning.x;
+  game.player.body.setTranslation({ x: turning.x, y: turning.y + 100 }, true);
+  game.attractPickups(1 / 60);
+  assert.ok(turning.x < turningX && turning.y > origin.y, 'momentum curves toward a moving ship instead of instantly changing direction');
+  game.player.body.setTranslation({ x: turning.x + 300, y: turning.y }, true);
+  const released = { x: turning.x, y: turning.y };
+  game.attractPickups(1 / 60);
+  assert.deepEqual({ x: turning.x, y: turning.y }, released, 'leaving the field stops attraction');
+  assert.equal(Math.hypot(turning.magnetVx, turning.magnetVy), 0, 'leaving the field clears momentum');
 
   // A pickup across a corridor wall is in range but must remain unreachable.
   setup(); controls.thrust = false; game.wells = [];

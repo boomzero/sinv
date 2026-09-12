@@ -56,7 +56,7 @@ Two white holes flank the corridor behind the barrier. Their radial repulsion an
 
 The HUD and chart show engine strength, estimated gem preparation, capsule inventory and breach condition. The approach is reserved during world generation so essential resources never spawn inside it. Restarting restores the barrier and resets thrust and capsules.
 
-Five pink **magnetism capsules** grant 12 seconds of attraction within 240 world units. All nearby pickups move toward the ship and collect on contact, including gems, antimatter, repair orbs, shields, boost fuel and other magnets; solid terrain blocks attraction. Another capsule refreshes the duration. The pink field and HUD countdown show when the skill is active, and pausing freezes its timer.
+Five pink **magnetism capsules** grant 12 seconds of attraction within 240 world units. Pickups start moving gently and build momentum under a pull that strengthens as they approach, curving toward you when you turn. All nearby pickups collect on contact, including gems, antimatter, repair orbs, shields, boost fuel and other magnets; solid terrain blocks attraction. Leaving the field or letting it expire stops their motion. Another capsule refreshes the duration. The pink field and HUD countdown show when the skill is active, and pausing freezes its timer.
 
 ## Resource placement
 

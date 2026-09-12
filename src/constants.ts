@@ -108,7 +108,9 @@ export const CLOSE_CALL_COOLDOWN = 10.0;   // seconds of lockout after scoring
 // Temporary pickup attraction; collecting another capsule refreshes the timer.
 export const MAGNET_DURATION = 12;
 export const MAGNET_RADIUS = 240;
-export const MAGNET_SPEED = 300;
+export const MAGNET_ACCEL = 1800;
+export const MAGNET_SOFTENING = 100;
+export const MAGNET_MAX_SPEED = 650;
 export const MAGNET_COUNT = 5;
 
 export const SHIELD_INVULNERABILITY = 1; // seconds after absorbing a damaging hit
