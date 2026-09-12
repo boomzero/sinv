@@ -12,11 +12,44 @@ globalThis.localStorage = { getItem: () => null, setItem() {} };
 const temp = await mkdtemp(join(tmpdir(), 'sinv-escape-'));
 try {
   await build({ configFile: false, logLevel: 'silent', publicDir: false, build: { outDir: temp, lib: { entry: 'scripts/test-entry.ts', formats: ['es'], fileName: () => 'test.mjs' } } });
-  const { Game, RAPIER, DIFFICULTIES, createPickup, createHunter, hunterMaxSpeed, runCheatCommand } = await import(pathToFileURL(join(temp, 'test.mjs')));
+  const { Game, RAPIER, DIFFICULTIES, createPickup, createHunter, hunterMaxSpeed, runCheatCommand, PhysicsContext, Navigation, createPlayer, updatePlayer, updateHunter, PLAYER_ACCEL, PLAYER_DAMPING, GEM_THRUST_GAIN } = await import(pathToFileURL(join(temp, 'test.mjs')));
   await RAPIER.init();
   assert.equal(hunterMaxSpeed(0, 0, 1, 0.8), hunterMaxSpeed(0, 0, 1), 'Normal starting speed is unchanged');
   assert.ok(hunterMaxSpeed(150, 0, 1, 0.8) > hunterMaxSpeed(0, 0, 1, 0.8), 'hunter still accelerates with time');
   assert.ok(hunterMaxSpeed(150, 0, 1, 0.8) < hunterMaxSpeed(150, 0, 1), 'Normal late-run acceleration is eased');
+  // Real open-space pursuit: ordinary thrust cannot permanently escape an
+  // endgame hunter, but a fuel-limited boost still creates breathing room.
+  for (const difficulty of DIFFICULTIES.slice(1)) {
+    for (const gems of [difficulty.escapeGems ?? difficulty.gemCount, 120]) {
+      for (const boost of [false, true]) {
+        const physics = new PhysicsContext();
+        const player = createPlayer(physics, 1000, 1000);
+        const hunter = createHunter(physics, 650, 1000);
+        player.engineMultiplier = 1 + gems * GEM_THRUST_GAIN;
+        const cruise = PLAYER_ACCEL / PLAYER_DAMPING * player.engineMultiplier;
+        player.body.setLinvel({ x: cruise, y: 0 }, true);
+        hunter.body.setLinvel({ x: cruise, y: 0 }, true);
+        const nav = new Navigation(40000, 2000, []);
+        const input = { turn: 0, thrust: true, boost, reverse: false };
+        let caught = false, gap = 350;
+        for (let frame = 0; frame < (boost ? 150 : 900); frame++) {
+          updatePlayer(player, input, 1 / 60);
+          updateHunter(hunter, player, physics, 150 + frame / 60, 0, false, difficulty, [], 1 / 60, nav);
+          physics.world.step();
+          gap = player.body.translation().x - hunter.body.translation().x;
+          if (gap < 31) { caught = true; break; }
+        }
+        if (boost) {
+          assert.ok(!caught && gap > 450, `${difficulty.name}/${gems}: a boost tank must open a gap (${gap})`);
+          assert.ok(player.boostFuel < 11, 'escape uses real boost fuel');
+        } else {
+          assert.ok(caught, `${difficulty.name}/${gems}: hunter must close on cruising endgame prey (${gap})`);
+        }
+        physics.free();
+      }
+    }
+  }
+  console.log('PASS: endgame hunters catch sustained cruise; finite boost opens a gap on Normal, Hard and Extreme, including surplus upgrades.');
   const game = new Game();
   const controls = { thrust: true, boost: true };
   Object.defineProperties(game.input, {
@@ -275,6 +308,30 @@ try {
   assert.equal(blocked.y, blockedY, 'magnetism cannot pull rewards through solid terrain');
   game.reset(42); assert.equal(game.magnetRemaining, 0, 'restart clears magnetism');
   console.log('PASS: magnet capsule contacts, range, sensor collection, duplicate protection, pause, refresh, expiry, wall occlusion and reset.');
+  // Use an actual Binary reward: the magnet must not extract its triple
+  // upgrade from outside the well, but a close pass still gets assistance.
+  setup(); controls.thrust = false;
+  const dangerGem = game.pickups.find(p => p.type === 'gem' && p.bonus);
+  assert.ok(dangerGem, 'generated Binary contains danger gems');
+  const well = game.wells.find(w => w.polarity === 1 && Math.hypot(w.x - dangerGem.x, w.y - dangerGem.y) < w.radius);
+  assert.ok(well);
+  const gemStart = { x: dangerGem.x, y: dangerGem.y };
+  const gemRadius = Math.hypot(dangerGem.x - well.x, dangerGem.y - well.y);
+  const outward = { x: (dangerGem.x - well.x) / gemRadius, y: (dangerGem.y - well.y) / gemRadius };
+  const placeOutsideGem = distance => game.player.body.setTranslation({ x: gemStart.x + outward.x * distance, y: gemStart.y + outward.y * distance }, true);
+  game.magnetUntil = game.playT + 12;
+  placeOutsideGem(well.radius + 10 - gemRadius);
+  for (let i = 0; i < 120; i++) game.attractPickups(1 / 60);
+  assert.deepEqual({ x: dangerGem.x, y: dangerGem.y }, gemStart, 'safe rim cannot vacuum a danger gem out of the Binary');
+  placeOutsideGem(81);
+  game.attractPickups(1 / 60);
+  assert.deepEqual({ x: dangerGem.x, y: dangerGem.y }, gemStart, 'big-gem attraction requires the inner magnet ring');
+  placeOutsideGem(70);
+  const thrustBeforeClosePass = game.player.engineMultiplier;
+  for (let i = 0; i < 30; i++) game.fixedUpdate(1 / 60);
+  assert.equal(dangerGem.taken, true, 'close-pass magnet assistance collects through the real sensor');
+  assert.ok(game.player.engineMultiplier >= thrustBeforeClosePass + 3 * GEM_THRUST_GAIN - 1e-10, 'assisted danger gems retain their full triple reward');
+  console.log('PASS: Binary danger gems resist safe-rim extraction and retain close-pass magnet assistance and triple thrust.');
   setup(); controls.thrust = false; game.wells = [];
   const shardX = game.gate.layout.barrier.x;
   game.player.body.setTranslation({ x: shardX - 170, y: game.gate.y }, true);

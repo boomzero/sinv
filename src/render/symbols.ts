@@ -3,7 +3,7 @@ import type { PickupType } from '../entities/types';
 export type SymbolKind = PickupType | 'hunter' | 'gate' | 'terrain' | 'blackhole' | 'whitehole';
 export const OBJECT_INFO: Record<SymbolKind, { color: string; name: string; meaning: string }> = {
   gem: { color: '#41ffe0', name: 'GEM', meaning: 'Engine power: small +1, big +3' },
-  magnet: { color: '#f48ed5', name: 'MAGNETISM', meaning: 'Attracts nearby pickups for 12 seconds' },
+  magnet: { color: '#f48ed5', name: 'MAGNETISM', meaning: 'Attracts pickups for 12 seconds; big gems need a closer pass' },
   antimatter: { color: '#ffb875', name: 'ANTIMATTER', meaning: 'Blasts rock shards; 3 charges cut through' },
   boost: { color: '#b67aff', name: 'BOOST FUEL', meaning: 'Refills your boost tank' },
   shield: { color: '#6699ff', name: 'SHIELD', meaning: 'Hit triggers 1 second of invulnerability' },

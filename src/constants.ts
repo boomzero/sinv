@@ -29,6 +29,9 @@ export const HUNTER_BASE_SPEED = 350;
 export const HUNTER_SPEED_PER_15S = 9;
 export const HUNTER_SPEED_PER_ORB = 14;
 export const HUNTER_SPEED_CAP = 720;
+// Added outside the time/orb cap: engine upgrades must not outgrow pursuit.
+// Accounts for hunter steering + damping; boost still opens a substantial gap.
+export const HUNTER_ENGINE_SPEED_GAIN = 1.85;
 export const HUNTER_GAIN = 2.6; // steering responsiveness
 export const HUNTER_WARMUP = 5; // seconds before pursuit begins
 export const HUNTER_STUN = 3; // seconds stunned after shield break
@@ -108,6 +111,8 @@ export const CLOSE_CALL_COOLDOWN = 10.0;   // seconds of lockout after scoring
 // Temporary pickup attraction; collecting another capsule refreshes the timer.
 export const MAGNET_DURATION = 12;
 export const MAGNET_RADIUS = 240;
+// Big danger gems still get collection assistance, but require a close pass.
+export const MAGNET_BONUS_RADIUS = 80;
 export const MAGNET_ACCEL = 1800;
 export const MAGNET_SOFTENING = 100;
 export const MAGNET_MAX_SPEED = 650;

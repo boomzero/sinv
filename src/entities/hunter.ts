@@ -10,6 +10,9 @@ import {
   HUNTER_SPEED_PER_15S,
   HUNTER_SPEED_PER_ORB,
   HUNTER_SPEED_CAP,
+  HUNTER_ENGINE_SPEED_GAIN,
+  PLAYER_ACCEL,
+  PLAYER_DAMPING,
   HUNTER_GAIN,
   HUNTER_LUNGE_PERIOD,
   HUNTER_LUNGE_TELEGRAPH,
@@ -71,15 +74,17 @@ export function hunterMaxSpeed(
   orbsCollected: number,
   speedMult: number,
   escalationMult = 1,
+  engineMultiplier = 1,
 ): number {
-  return (
-    Math.min(
-      HUNTER_SPEED_CAP,
-      HUNTER_BASE_SPEED +
-        (playTime / 15) * HUNTER_SPEED_PER_15S * escalationMult +
-        orbsCollected * HUNTER_SPEED_PER_ORB,
-    ) * speedMult
+  const baseSpeed = Math.min(
+    HUNTER_SPEED_CAP,
+    HUNTER_BASE_SPEED +
+      (playTime / 15) * HUNTER_SPEED_PER_15S * escalationMult +
+      orbsCollected * HUNTER_SPEED_PER_ORB,
   );
+  const upgradeSpeed = Math.max(0, engineMultiplier - 1) *
+    (PLAYER_ACCEL / PLAYER_DAMPING) * HUNTER_ENGINE_SPEED_GAIN;
+  return (baseSpeed + upgradeSpeed) * speedMult;
 }
 
 export function updateHunter(
@@ -106,7 +111,7 @@ export function updateHunter(
   const vel = body.linvel();
   const ppos = player.body.translation();
   const pvel = player.body.linvel();
-  const maxSpeed = hunterMaxSpeed(playTime, orbsCollected, difficulty.hunterSpeedMult, difficulty.hunterEscalationMult);
+  const maxSpeed = hunterMaxSpeed(playTime, orbsCollected, difficulty.hunterSpeedMult, difficulty.hunterEscalationMult, player.engineMultiplier);
 
   const predictionTime = Math.min(1.2, Math.hypot(ppos.x - pos.x, ppos.y - pos.y) / maxSpeed);
   const predicted = { x: ppos.x + pvel.x * predictionTime, y: ppos.y + pvel.y * predictionTime };
@@ -206,7 +211,7 @@ export function updateHunter(
     }
   }
 
-  const force = steerToward(vel, desired, body.mass(), direct ? HUNTER_GAIN : 6, direct ? 1100 : 1400);
+  const force = steerToward(vel, desired, body.mass(), direct ? HUNTER_GAIN : 6, (direct ? 1100 : 1400) * Math.max(1, player.engineMultiplier));
   body.addForce(force, true);
 
   // Periodic lunge once the player has collected most of the gems: telegraphed

@@ -27,7 +27,7 @@ import type {
 } from './entities/types';
 import {
   SHIELD_INVULNERABILITY,
-  MAGNET_DURATION, MAGNET_RADIUS, MAGNET_ACCEL, MAGNET_SOFTENING, MAGNET_MAX_SPEED,
+  MAGNET_DURATION, MAGNET_RADIUS, MAGNET_BONUS_RADIUS, MAGNET_ACCEL, MAGNET_SOFTENING, MAGNET_MAX_SPEED,
   GEM_SCORE,
   GEM_BONUS_MULT,
   MULT_MAX,
@@ -319,10 +319,11 @@ export class Game {
     for (const pickup of this.pickups) {
       if (pickup.taken) continue;
       const dx = pos.x - pickup.x, dy = pos.y - pickup.y, distance = Math.hypot(dx, dy);
+      const radius = pickup.type === 'gem' && pickup.bonus ? MAGNET_BONUS_RADIUS : MAGNET_RADIUS;
       const clearance = PICKUP_RADIUS[pickup.type] + 6;
       // Release momentum when the field is lost; rewards must stay within
       // their collection range and cannot drift through station walls.
-      if (!active || distance < 1 || distance > MAGNET_RADIUS || !this.navigation.clearLine(pickup, pos, clearance)) {
+      if (!active || distance < 1 || distance > radius || !this.navigation.clearLine(pickup, pos, clearance)) {
         pickup.magnetVx = 0; pickup.magnetVy = 0;
         continue;
       }

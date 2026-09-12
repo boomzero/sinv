@@ -8,6 +8,7 @@ import { drawStarfield } from './starfield';
 import { drawBounds } from './bounds';
 import {
   MAGNET_RADIUS,
+  MAGNET_BONUS_RADIUS,
   PLAYER_RADIUS,
   HUNTER_RADIUS,
   WELL_CORE_RADIUS,
@@ -92,6 +93,8 @@ export function drawScene(
     ctx.strokeStyle = '#f48ed544'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 12]);
     ctx.beginPath(); ctx.arc(0, 0, MAGNET_RADIUS, 0, Math.PI * 2); ctx.stroke();
     ctx.setLineDash([]);
+    ctx.strokeStyle = '#f48ed577';
+    ctx.beginPath(); ctx.arc(0, 0, MAGNET_BONUS_RADIUS, 0, Math.PI * 2); ctx.stroke();
     for (let i = 0; i < 3; i++) {
       const t = (game.playT * 0.6 + i / 3) % 1;
       ctx.strokeStyle = `rgba(244,142,213,${0.2 * Math.sin(t * Math.PI)})`;

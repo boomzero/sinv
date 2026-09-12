@@ -7,7 +7,7 @@ export { Navigation } from '../src/ai/navigation';
 export { PhysicsContext, createWalls } from '../src/physics';
 export { createStructure, createAsteroid, ASTEROID_MATERIALS } from '../src/entities/asteroid';
 export { createHunter, updateHunter } from '../src/entities/hunter';
-export { createPlayer } from '../src/entities/player';
+export { createPlayer, updatePlayer } from '../src/entities/player';
 
 export { drawStarfield } from '../src/render/starfield';
 export { drawLandmark } from '../src/render/landmarks';
@@ -21,3 +21,5 @@ export { runCheatCommand } from '../src/cheat-commands';
 export { drawExitStructure } from '../src/render/exit';
 export { drawSectorMap } from '../src/render/chart';
 export { FrameStats } from '../src/frame-stats';
+export { PLAYER_ACCEL, PLAYER_DAMPING } from '../src/constants';
+export { GEM_THRUST_GAIN } from '../src/world/exit';
