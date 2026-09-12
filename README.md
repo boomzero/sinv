@@ -114,3 +114,5 @@ Type **kelly** during a run to enable the command console, then press **/** or c
 Big gems grant three times the engine thrust of small gems: +3 gem power instead of +1. The HUD escape target uses gem power; collection statistics still count physical gems.
 
 Use `infinite-boost on` / `infinite-boost off` and `impact-immunity on` / `impact-immunity off` independently. Both default to off and reset on a new run. Impact immunity blocks asteroid and barrier damage; hunters and black-hole cores remain dangerous. `status` reports both settings.
+
+Use `gravity off` to disable gravity-well attraction, repulsion, swirl and field drag for the player, and `gravity on` to restore them. Hunters and asteroids retain normal gravity, and black-hole cores remain dangerous. Player gravity defaults to on, resets on a new run, and is shown in the console and `status`.

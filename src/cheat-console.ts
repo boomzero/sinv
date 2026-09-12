@@ -37,6 +37,7 @@ export function createCheatConsole(game: Game): { sync(): void; isOpen(): boolea
     ['time 120', 'Set elapsed seconds'], ['status', 'Inspect this run'],
     ['infinite-boost on', 'Unlimited fuel · on / off'],
     ['impact-immunity on', 'Ignore rock damage · on / off'],
+    ['gravity off', 'Player gravity · on / off'],
   ];
   for (const [command, description] of commands) {
     const item = document.createElement('button'); item.type = 'button';
@@ -67,7 +68,7 @@ export function createCheatConsole(game: Game): { sync(): void; isOpen(): boolea
       cursor = history.length; input.value = '';
     }
     const huntersOff = game.hunters.length > 0 && game.hunters.every(h => !h.body.isEnabled());
-    current.textContent = `Now · Infinite boost ${game.cheats && game.infiniteBoost ? 'ON' : 'OFF'} · Impact immunity ${game.cheats && game.impactImmunity ? 'ON' : 'OFF'} · Hunters ${game.hunters.length === 0 ? 'NONE' : huntersOff ? 'OFF' : 'ON'}`;
+    current.textContent = `Now · Infinite boost ${game.cheats && game.infiniteBoost ? 'ON' : 'OFF'} · Impact immunity ${game.cheats && game.impactImmunity ? 'ON' : 'OFF'} · Player gravity ${game.cheats && game.noGravity ? 'OFF' : 'ON'} · Hunters ${game.hunters.length === 0 ? 'NONE' : huntersOff ? 'OFF' : 'ON'}`;
   };
   const close = () => { dialog.close(); game.input.clearHeld(); button.blur(); };
   const open = () => {

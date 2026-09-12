@@ -120,6 +120,37 @@ try {
   game.infiniteBoost = true; game.impactImmunity = true; game.reset(42);
   assert.equal(game.infiniteBoost, false); assert.equal(game.impactImmunity, false);
   setup(); controls.thrust = false;
+  assert.equal(game.noGravity, false, 'player gravity starts enabled');
+  assert.match(runCheatCommand(game, 'gravity off'), /Enable cheat/);
+  assert.equal(game.noGravity, false, 'gravity override requires cheat mode');
+  game.cheats = true;
+  for (const field of [{ polarity: 1 }, { polarity: -1 }, { polarity: -1, exit: true }]) {
+    const p = game.player.body.translation();
+    game.wells = [{ x: p.x + 120, y: p.y, radius: 500, ...field }];
+    const hunter = createHunter(game.physics, p.x, p.y + 100);
+    game.hunters = [hunter];
+    game.player.body.setLinvel({ x: 10, y: 20 }, true);
+    runCheatCommand(game, 'gravity off');
+    assert.match(runCheatCommand(game, 'status'), /player gravity off/);
+    assert.match(runCheatCommand(game, 'gravity invalid'), /Usage: gravity on\|off/);
+    assert.equal(game.noGravity, true, 'invalid command preserves setting');
+    game.player.body.resetForces(true);
+    game.player.body.addForce({ x: 7, y: 9 }, true);
+    game.applyGravityWells();
+    assert.deepEqual({ ...game.player.body.userForce() }, { x: 7, y: 9 }, 'gravity off preserves thrust without adding field forces');
+    assert.ok(Math.hypot(...Object.values(hunter.body.userForce())) > 0, 'hunter still feels gravity');
+    runCheatCommand(game, 'gravity on');
+    game.player.body.resetForces(true); game.applyGravityWells();
+    assert.ok(Math.hypot(...Object.values(game.player.body.userForce())) > 0, 'gravity on restores field forces');
+    runCheatCommand(game, 'gravity off'); game.cheats = false;
+    game.player.body.resetForces(true); game.applyGravityWells();
+    assert.ok(Math.hypot(...Object.values(game.player.body.userForce())) > 0, 'leaving cheat mode restores gravity');
+    game.cheats = true;
+    game.physics.world.removeRigidBody(hunter.body); game.hunters = [];
+  }
+  game.reset(42);
+  assert.equal(game.noGravity, false, 'new run restores player gravity');
+  setup(); controls.thrust = false;
   const pressRestart = () => {
     const event = new Event('keydown'); Object.assign(event, { code: 'KeyR', key: 'r', repeat: false });
     window.dispatchEvent(event); game.fixedUpdate(1 / 60);

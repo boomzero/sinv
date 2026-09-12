@@ -149,6 +149,7 @@ export class Game {
   cheats = false;
   infiniteBoost = false;
   impactImmunity = false;
+  noGravity = false;
   /** Sticky for the run: once cheats touch a run, its score never saves — even if toggled back off. */
   cheatsUsed = false;
   /** playT when the first BHAS override intercept was triggered this run (−1 = not yet). */
@@ -243,6 +244,7 @@ export class Game {
     this.cheats = false;
     this.infiniteBoost = false;
     this.impactImmunity = false;
+    this.noGravity = false;
     this.cheatsUsed = false;
     this.isNewHighScore = false;
     this.winBreakdown = null;
@@ -586,6 +588,7 @@ export class Game {
       const p = body.translation();
       const isHunter = hunterBodies.has(body);
       const isPlayer = body === this.player.body;
+      if (isPlayer && this.cheats && this.noGravity) continue;
       const isShip = isPlayer || isHunter;
       for (const well of this.wells) {
         const dx = well.x - p.x;

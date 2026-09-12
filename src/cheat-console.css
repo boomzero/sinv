@@ -19,7 +19,7 @@
 .cheat-console details { border: 1px solid #213c4a; border-radius: 8px; overflow: hidden; }
 .cheat-console summary { padding: 10px 12px; cursor: pointer; color: #a9c4d2; }
 .cheat-console summary span { float: right; font-size: 11px; color: #6e8d9e; }
-.command-reference { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #21313d; border-top: 1px solid #213c4a; }
+.command-reference { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; max-height: min(210px, 30dvh); overflow-y: auto; overscroll-behavior-y: contain; background: #21313d; border-top: 1px solid #213c4a; }
 .command-reference button { display: flex; flex-direction: column; text-align: left; border: 0; border-radius: 0; background: #0c1c28; padding: 7px 12px; }
 .command-reference code { font: inherit; color: #8be1ed; }
 .command-reference span { color: #809cae; font-size: 11px; }
@@ -41,7 +41,7 @@
 .cheat-console footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 9px; font-size: 10px; color: #607f90; }
 @media (max-width: 460px) {
   .cheat-console { padding: 16px; }
-  .command-reference { grid-template-columns: 1fr; max-height: 210px; overflow: auto; }
+  .command-reference { grid-template-columns: 1fr; }
   .command-reference button { flex-direction: row; justify-content: space-between; gap: 8px; }
 }
 

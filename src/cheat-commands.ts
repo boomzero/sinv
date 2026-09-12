@@ -12,8 +12,16 @@ export function runCheatCommand(game: Game, source: string): string {
   };
   try {
     switch (command) {
-      case 'help': return 'gems <0–999> · antimatter <0–99> · shield · heal · fuel · magnet <seconds> · tp exit · tp <x> <y> · hunters on|off · time <seconds> · infinite-boost on|off · impact-immunity on|off · status';
-      case 'status': return `Seed ${game.seed} · ${game.difficulty.name} · power ${game.thrustGems}/${game.escapeGemTarget} · capsules ${game.antimatter} · time ${game.playT.toFixed(1)}s · infinite boost ${game.infiniteBoost ? 'on' : 'off'} · impact immunity ${game.impactImmunity ? 'on' : 'off'}`;
+      case 'help': return 'gems <0–999> · antimatter <0–99> · shield · heal · fuel · magnet <seconds> · tp exit · tp <x> <y> · hunters on|off · time <seconds> · infinite-boost on|off · impact-immunity on|off · gravity on|off · status';
+      case 'status': return `Seed ${game.seed} · ${game.difficulty.name} · power ${game.thrustGems}/${game.escapeGemTarget} · capsules ${game.antimatter} · time ${game.playT.toFixed(1)}s · infinite boost ${game.infiniteBoost ? 'on' : 'off'} · impact immunity ${game.impactImmunity ? 'on' : 'off'} · player gravity ${game.noGravity ? 'off' : 'on'}`;
+      case 'import':
+        if (args.length !== 1 || args[0] !== 'antigravity') return 'Unknown command. Type help.';
+        game.noGravity = true;
+        break;
+      case 'gravity':
+        if (args.length !== 1 || !['on', 'off'].includes(args[0])) throw new Error('Usage: gravity on|off');
+        game.noGravity = args[0] === 'off';
+        break;
       case 'infinite-boost':
       case 'impact-immunity':
         if (args.length !== 1 || !['on', 'off'].includes(args[0])) throw new Error(`Usage: ${command} on|off`);
