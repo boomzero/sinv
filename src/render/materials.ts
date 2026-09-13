@@ -7,9 +7,9 @@ const sources = {
   ice: new Image(),
 };
 for (const source of Object.values(sources)) source.onload = () => { version++; };
-sources.metal.src = new URL('../../public/assets/station-hull-v2.png', import.meta.url).href;
+sources.metal.src = new URL('../../public/assets/station-hull-v5.png', import.meta.url).href;
 sources.rock.src = new URL('../../public/assets/asteroid-rock.png', import.meta.url).href;
-sources.ice.src = new URL('../../public/assets/asteroid-ice-v2.png', import.meta.url).href;
+sources.ice.src = new URL('../../public/assets/asteroid-ice-v7.png', import.meta.url).href;
 
 const tiles = new Map<Material, { version: number; canvas: HTMLCanvasElement }>();
 export const materialVersion = (): number => version;
@@ -22,7 +22,7 @@ export function paintMaterial(ctx: CanvasRenderingContext2D, material: Material,
     let tile = tiles.get(material);
     if (!tile || tile.version !== version) {
       const canvas = document.createElement('canvas');
-      canvas.width = material === 'metal' ? 512 : 320;
+      canvas.width = 320;
       canvas.height = Math.round(canvas.width * source.naturalHeight / source.naturalWidth);
       canvas.getContext('2d')!.drawImage(source, 0, 0, canvas.width, canvas.height);
       tile = { version, canvas };

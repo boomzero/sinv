@@ -24,16 +24,19 @@ export function drawAsteroid(ctx: CanvasRenderingContext2D, a: Asteroid): void {
     const offset = Math.abs(v[0] * 13) % 220;
     surface.save();
     surface.translate(offset, -offset);
-    paintMaterial(surface, icy ? 'ice' : 'rock', extent + offset);
+    // Keep several ice fractures visible even on the smallest comet.
+    const materialScale = icy ? a.radius * 2 / 160 : 1;
+    surface.scale(materialScale, materialScale);
+    paintMaterial(surface, icy ? 'ice' : 'rock', (extent + offset) / materialScale);
     surface.restore();
     const shade = surface.createLinearGradient(-a.radius, -a.radius, a.radius, a.radius);
     shade.addColorStop(0, icy ? 'rgba(183,215,229,0.18)' : 'rgba(210,203,186,0.22)');
     shade.addColorStop(0.5, 'rgba(0,0,0,0)');
-    shade.addColorStop(1, 'rgba(3,6,12,0.7)');
+    shade.addColorStop(1, icy ? 'rgba(3,16,28,0.22)' : 'rgba(3,6,12,0.7)');
     surface.fillStyle = shade;
     surface.fillRect(-extent, -extent, extent * 2, extent * 2);
-    surface.strokeStyle = 'rgba(10,13,18,0.55)';
-    surface.lineWidth = 7;
+    surface.strokeStyle = icy ? 'rgba(25,66,85,0.3)' : 'rgba(10,13,18,0.55)';
+    surface.lineWidth = icy ? 1.5 : 7;
     surface.stroke();
     surface.restore();
     surface.strokeStyle = icy ? '#a3c1d188' : '#827f7788';
