@@ -29,6 +29,28 @@ try {
       lastX = x;
     }
   }
+  // Anything projected through the interpolated camera must be interpolated
+  // too. A raw target pose slides backwards against the smoothly moving
+  // viewport and snaps forward on every fixed step.
+  for (const rate of [90, 144]) {
+    const clock = new FixedStepAccumulator();
+    const motion = new RenderMotion();
+    const camera = new Camera(), target = { x: 0, y: 0 };
+    let lastScreen;
+    for (let frame = 0; frame < rate * 2; frame++) {
+      clock.advance(1 / rate, dt => {
+        motion.capture(camera, camera);
+        motion.capture(target, target);
+        camera.x += 200 * dt;
+        target.x += 500 * dt;
+      });
+      motion.alpha = clock.alpha;
+      const screen = motion.position(target, target).x - motion.position(camera, camera).x;
+      if (frame > 3) assert.ok(Math.abs(screen - lastScreen - 300 / rate) < 1e-7,
+        `${rate} Hz: screen markers must track the interpolated camera`);
+      lastScreen = screen;
+    }
+  }
   const motion = new RenderMotion();
   const body = { translation: () => ({ x: 10, y: 20 }), rotation: () => -Math.PI + 0.1 };
   motion.capture(body, { x: 0, y: 0 }, Math.PI - 0.1);

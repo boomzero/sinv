@@ -245,7 +245,10 @@ function drawHunterArrow(
   const pp = game.player.body.translation();
   for (const hunter of game.hunters) {
     if (!hunter.body.isEnabled() || game.respawning(hunter)) continue;
-    const hp = hunter.body.translation();
+    // The arrow projects through the interpolated camera, so its target has to
+    // be interpolated too; a raw pose slides backwards against the smoothly
+    // moving viewport and snaps forward on every fixed step.
+    const hp = game.motion.position(hunter.body, hunter.body.translation());
     const dist = Math.hypot(hp.x - pp.x, hp.y - pp.y);
     // Pulse faster as the hunter closes in
     const rate = 2 + 2500 / Math.max(dist, 120);
