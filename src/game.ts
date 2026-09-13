@@ -10,6 +10,7 @@ import { Particles } from './render/particles';
 import { drawScene } from './render/renderer';
 import { drawHud, drawOverlay } from './render/hud';
 import { mulberry32 } from './util/rng';
+import { blackHoleTurbulence } from './world/turbulence';
 import { generateWorld, distanceToStructure, type Landmark } from './world/generate';
 import { createPlayer, updatePlayer, type PlayerFrame } from './entities/player';
 import { createHunter, updateHunter } from './entities/hunter';
@@ -610,7 +611,22 @@ export class Game {
             well.polarity *
             (well.polarity === -1 ? WHITE_HOLE_PUSH_FACTOR : 1);
           const f = (accel * body.mass()) / dist;
-          body.addForce({ x: dx * f, y: dy * f }, true);
+          if (well.polarity === 1 && !well.exit) {
+            const gust = blackHoleTurbulence(
+              this.seed, well.x, well.y, this.playT, dist, well.radius, Math.atan2(dy, dx),
+            );
+            // Remove only orbital momentum. Drag never supplies a slingshot
+            // or brakes the inward fall, and radial boost remains an escape.
+            const v = body.linvel();
+            const orbitalSpeed = (-dy * v.x + dx * v.y) / dist;
+            const orbitalForce = -orbitalSpeed * gust.orbitDrag * factor * body.mass() / dist;
+            body.addForce({
+              x: dx * gust.radial * f - dy * orbitalForce,
+              y: dy * gust.radial * f + dx * orbitalForce,
+            }, true);
+          } else {
+            body.addForce({ x: dx * f, y: dy * f }, true);
+          }
 
           // White-hole vortex slingshot — PLAYER ONLY. A tangential whirl on
           // top of the radial push; grazing it along the spin does net positive

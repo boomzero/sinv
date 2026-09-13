@@ -22,6 +22,8 @@ import {
 import { drawExitStructure } from './exit';
 import { GATE_RADIUS } from '../entities/pickup';
 import { hunterHeading } from '../entities/hunter';
+import { blackHoleTurbulence } from '../world/turbulence';
+import { hash2 } from '../util/rng';
 
 // --- Pre-rendered glow sprites for pickups (shadowBlur is expensive live) ---
 
@@ -73,7 +75,7 @@ export function drawScene(
 
   drawBounds(ctx, game.time, game.mapW, game.mapH, cx, cy, w, h);
   if (visible(game.gate.x - 460, game.gate.y, 850)) drawExitStructure(ctx, game);
-  for (const well of game.wells) if (visible(well.x, well.y, well.radius + 30)) drawWell(ctx, well, game.time, game.debugDraw);
+  for (const well of game.wells) if (visible(well.x, well.y, well.radius + 30)) drawWell(ctx, well, game.time, game.debugDraw, game.seed, game.playT);
   for (const landmark of game.landmarks) {
     if (visible(landmark.x, landmark.y, landmark.radius + 150)) drawLandmark(ctx, landmark, game.time);
   }
@@ -109,7 +111,7 @@ export function drawScene(
   ctx.restore();
 }
 
-function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number, debug = false): void {
+function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number, debug = false, seed = 0, fieldTime = time): void {
   const black = well.polarity === 1;
   ctx.save();
   ctx.translate(well.x, well.y);
@@ -127,7 +129,7 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
   ctx.arc(0, 0, well.radius, 0, Math.PI * 2);
   ctx.fill();
 
-  // Swirl. Black holes get plain spiraling arcs; white holes are drawn as a
+  // Black holes show inward flow across the entire field; white holes remain a
   // proper whirlpool — spiral arms coiling into the drain, rotating in the same
   // sense as the tangential vortex force so the spin (and thus the slingshot
   // throw direction) reads straight off the visual.
@@ -140,15 +142,41 @@ function drawWell(ctx: CanvasRenderingContext2D, well: GravityWell, time: number
       ctx.beginPath(); ctx.arc(0, 0, 20 + phase * (well.radius - 20), 0, Math.PI * 2); ctx.stroke();
     }
   } else if (black) {
-    ctx.strokeStyle = 'rgba(200,130,255,0.5)';
-    ctx.lineWidth = 2;
-    for (let i = 0; i < 3; i++) {
-      const a0 = time * (0.6 + i * 0.25) + (i * Math.PI * 2) / 3;
-      const r = 40 + i * 45;
-      ctx.beginPath();
-      ctx.arc(0, 0, r, a0, a0 + Math.PI * 1.2);
-      ctx.stroke();
+    // Independent hashed channels avoid correlated angles collapsing into one
+    // ribbon. Tiny dust grains drift inward; only short local trails are drawn.
+    ctx.lineCap = 'round';
+    const salt = hash2(Math.round(well.x), Math.round(well.y), seed);
+    for (let i = 0; i < 120; i++) {
+      const offset = hash2(i, 1, salt) / 0xffffffff;
+      const speed = 0.10 + hash2(i, 2, salt) / 0xffffffff * 0.09;
+      const phase = (time * speed + offset) % 1;
+      const base = hash2(i, 3, salt) / 0xffffffff * Math.PI * 2;
+      const r = WELL_CORE_RADIUS + (well.radius - WELL_CORE_RADIUS) * Math.pow(1 - phase, 1.5);
+      const angle = base + 2.2 * phase * phase + time * 0.1;
+      const force = blackHoleTurbulence(seed, well.x, well.y, fieldTime, r, well.radius, angle + Math.PI);
+      const fade = Math.sin(phase * Math.PI);
+      const alpha = fade * (0.22 + 0.38 * (force.radial - 1));
+      const size = 0.5 + hash2(i, 4, salt) / 0xffffffff * 0.9;
+      const x = Math.cos(angle) * r, y = Math.sin(angle) * r;
+      const previous = Math.max(0, phase - speed * 0.045);
+      const oldRadius = WELL_CORE_RADIUS + (well.radius - WELL_CORE_RADIUS) * Math.pow(1 - previous, 1.5);
+      const oldAngle = base + 2.2 * previous * previous + (time - 0.045) * 0.1;
+      ctx.strokeStyle = `rgba(198,149,230,${alpha * 0.5})`;
+      ctx.lineWidth = size;
+      ctx.beginPath(); ctx.moveTo(Math.cos(oldAngle) * oldRadius, Math.sin(oldAngle) * oldRadius);
+      ctx.lineTo(x, y); ctx.stroke();
+      ctx.fillStyle = `rgba(225,194,244,${alpha})`;
+      ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
     }
+    // A diffuse inner glow, not a stack of concentric line segments.
+    const heat = blackHoleTurbulence(seed, well.x, well.y, fieldTime, WELL_CORE_RADIUS + 20, well.radius, 0);
+    const corona = ctx.createRadialGradient(0, 0, WELL_CORE_RADIUS, 0, 0, WELL_CORE_RADIUS + 65);
+    corona.addColorStop(0, `rgba(224,163,255,${0.3 * heat.radial})`);
+    corona.addColorStop(0.2, 'rgba(172,98,214,0.15)');
+    corona.addColorStop(1, 'rgba(137,70,190,0)');
+    ctx.fillStyle = corona;
+    ctx.beginPath(); ctx.arc(0, 0, WELL_CORE_RADIUS + 65, 0, Math.PI * 2); ctx.fill();
+
   } else {
     const dir = WHITE_HOLE_SWIRL_DIR;
     const arms = 3;

@@ -42,7 +42,7 @@ const KINDS: LandmarkKind[] = ['halo', 'binary', 'graveyard', 'needle', 'pocket'
 const RADII: Record<LandmarkKind, number> = { halo: 480, binary: 660, graveyard: 510, needle: 490, pocket: 470 };
 const DETAILS: Record<LandmarkKind, { name: string; color: string; conditions: [string, string]; hints: [string, string] }> = {
   halo: { name: 'BROKEN HALO', color: '#8be5ff', conditions: ['Open circuit', 'Shattered arc'], hints: ['Cut through the ring. Choose your exit early.', 'A collapsed arc opens a wider escape route.'] },
-  binary: { name: 'THE BINARY', color: '#c69aff', conditions: ['Close embrace', 'Wide orbit'], hints: ['Skirt the violet core. Let the white vortex throw you clear.', 'The wider gap offers a gentler gravity crossing.'] },
+  binary: { name: 'THE BINARY', color: '#c69aff', conditions: ['Close embrace', 'Wide orbit'], hints: ['Violet currents shift. Grab a prize, then boost clear.', 'Watch the shifting pull. Use the white vortex to escape.'] },
   graveyard: { name: 'SHIP GRAVEYARD', color: '#e3b783', conditions: ['Convoy remains', 'Staggered flagship'], hints: ['Thread the wrecks or take the long way around.', 'The offset flagship changes your approach to the shortcut.'] },
   needle: { name: 'THE NEEDLE', color: '#f1c576', conditions: ['Straight shot', 'Offset seam'], hints: ['Line up before boosting through the seam.', 'The seam bends. Ease off before the second half.'] },
   pocket: { name: "SMUGGLER’S POCKET", color: '#79dfb2', conditions: ['Sheltered cache', 'Breached vault'], hints: ['Supplies inside. Keep the other exit in sight.', 'A third breach gives you another way out.'] },

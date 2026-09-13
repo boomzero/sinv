@@ -149,14 +149,26 @@ export function drawChart(ctx: CanvasRenderingContext2D, game: Game, w: number, 
   if (game.wells.some(w => w.polarity === 1)) kinds.push('blackhole');
   const legendTop = Math.max(top + mh + 33, top + 360);
   const column = (sw - 76) / 3;
+  let legendY = legendTop;
+  let rowHeight = 34;
   kinds.forEach((kind, i) => {
-    const x = left + i % 3 * column, y = legendTop + Math.floor(i / 3) * 34;
+    if (i > 0 && i % 3 === 0) { legendY += rowHeight; rowHeight = 34; }
+    const x = left + i % 3 * column, y = legendY;
     const info = OBJECT_INFO[kind];
     drawSymbol(ctx, kind, x + 10, y + 3, 9);
     ctx.textAlign = 'left'; ctx.fillStyle = info.color; ctx.font = 'bold 11px monospace';
     ctx.fillText(info.name, x + 28, y);
     ctx.fillStyle = '#a3b5bf'; ctx.font = '10px monospace';
-    ctx.fillText(info.meaning, x + 28, y + 14);
+    let line = '', row = 1;
+    for (const word of info.meaning.split(' ')) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > column - 44) {
+        ctx.fillText(line, x + 28, y + row++ * 14);
+        line = word;
+      } else line = next;
+    }
+    ctx.fillText(line, x + 28, y + row * 14);
+    rowHeight = Math.max(rowHeight, row * 14 + 20);
   });
   ctx.fillStyle = '#9dd9df'; ctx.font = '12px monospace';
   ctx.fillText(game.state === 'menu' ? 'Close map to return to launch.  Enter also launches.' : 'FLIGHT PAUSED — close this map to resume.', left, sh - 20);

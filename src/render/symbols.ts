@@ -11,7 +11,7 @@ export const OBJECT_INFO: Record<SymbolKind, { color: string; name: string; mean
   hunter: { color: '#ff666b', name: 'HUNTER', meaning: 'Avoid it — contact can end the run' },
   gate: { color: '#76f0a6', name: 'EXIT', meaning: 'Breach the barrier; boost past repulsors' },
   terrain: { color: '#9cabb8', name: 'SOLID TERRAIN', meaning: 'Walls and rocks — fly through the gaps' },
-  blackhole: { color: '#ca94ff', name: 'BLACK HOLE', meaning: 'Pulls you in — the dark core kills' },
+  blackhole: { color: '#ca94ff', name: 'BLACK HOLE', meaning: 'Inward surges drain orbit speed; deadly core' },
   whitehole: { color: '#d4f4ff', name: 'WHITE HOLE', meaning: 'Repels ships; exit pair needs thrust' },
 };
 

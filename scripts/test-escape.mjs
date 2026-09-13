@@ -67,6 +67,76 @@ try {
     for (const gem of game.pickups.filter(p => p.type === 'gem').slice(0, gems)) { gem.bonus = false; game.consumePickup(gem); }
     controls.thrust = true; controls.boost = true;
   }
+  // Sample the actual applied forces at the prize arc, with pursuit isolated.
+  setup();
+  const turbulenceWell = { x: 2000, y: 2000, radius: 460, polarity: 1 };
+  game.wells = [turbulenceWell];
+  function sampleField(time, distance = 300) {
+    game.playT = time;
+    game.player.body.setTranslation({ x: 2000 + distance, y: 2000 }, true);
+    game.player.body.resetForces(true);
+    game.applyGravityWells();
+    const f = game.player.body.userForce(), mass = game.player.body.mass();
+    return { x: f.x / mass, y: f.y / mass };
+  }
+  game.player.body.setLinvel({ x: 0, y: 400 }, true);
+  const samples = Array.from({ length: 121 }, (_, i) => sampleField(i / 10));
+  assert.deepEqual(sampleField(0), samples[0], 'same seed and simulation time reproduce the field');
+  const steadyPull = 700000 / Math.pow(300, 1.4);
+  assert.ok(samples.every(f => f.x <= -steadyPull && f.y < 0), 'surges never weaken gravity and orbital drag always removes energy');
+  game.player.body.setLinvel({ x: 0, y: -400 }, true);
+  assert.ok(sampleField(0).y > 0, 'reverse orbits also lose speed');
+  game.player.body.setLinvel({ x: -400, y: 0 }, true);
+  assert.equal(sampleField(0).y, 0, 'radial falls receive no sideways kick');
+  game.player.body.setLinvel({ x: 0, y: 400 }, true);
+  assert.ok(Math.max(...samples.map(f => f.x)) - Math.min(...samples.map(f => f.x)) > 40,
+    'a fixed orbit cannot rely on constant radial pull');
+  const gustBefore = sampleField(1.4 - 0.00001), gustAfter = sampleField(1.4 + 0.00001);
+  assert.ok(Math.hypot(gustBefore.x - gustAfter.x, gustBefore.y - gustAfter.y) < 0.1, 'gust transitions are smooth');
+  const rim = sampleField(3, 459.99);
+  assert.ok(Math.abs(rim.y) < 0.01, 'turbulence fades at the rim');
+  game.seed = 43;
+  assert.notDeepEqual(sampleField(0), samples[0], 'different runs have different currents');
+  turbulenceWell.polarity = -1;
+  assert.deepEqual(sampleField(0), sampleField(5), 'white-hole slingshots remain steady');
+  // Compare a circular orbit in the original steady field against production
+  // turbulence. Disable ordinary ship damping to isolate the field's effect.
+  for (const seed of [0, 1, 7, 19, 42, 100, 999, 12345]) {
+    for (const direction of [-1, 1]) {
+      for (const turbulent of [false, true]) {
+        setup(); game.seed = seed; game.wells = [{ ...turbulenceWell, polarity: 1 }];
+        const body = game.player.body;
+        body.setLinearDamping(0);
+        body.setTranslation({ x: 2300, y: 2000 }, true);
+        body.setLinvel({ x: 0, y: direction * Math.sqrt(steadyPull * 300) }, true);
+        let swallowed = false;
+        for (let frame = 0; frame < 600; frame++) {
+          game.playT = frame / 60;
+          body.resetForces(true);
+          if (turbulent) game.applyGravityWells();
+          else {
+            const p = body.translation(), dx = 2000 - p.x, dy = 2000 - p.y;
+            const r = Math.hypot(dx, dy), f = 700000 / Math.pow(r, 1.4) * body.mass() / r;
+            body.addForce({ x: dx * f, y: dy * f }, true);
+          }
+          game.physics.world.step();
+          const p = body.translation();
+          if (Math.hypot(p.x - 2000, p.y - 2000) < 70) { swallowed = true; break; }
+        }
+        assert.equal(swallowed, turbulent, `seed ${seed}, orbit ${direction}: only turbulent field must consume an uncorrected orbit`);
+      }
+    }
+    setup(); game.seed = seed; game.wells = [{ ...turbulenceWell, polarity: 1 }];
+    game.player.body.setTranslation({ x: 2300, y: 2000 }, true);
+    game.player.body.setRotation(0, true);
+    for (let frame = 0; frame < 120; frame++) {
+      game.playT = frame / 60;
+      updatePlayer(game.player, { turn: 0, thrust: true, boost: true, reverse: false }, 1 / 60);
+      game.applyGravityWells(); game.physics.world.step();
+    }
+    assert.ok(game.player.body.translation().x > 2460, `seed ${seed}: prompt outward boost escapes the prize arc`);
+  }
+  console.log('PASS: surges never weaken pull; orbital drag consumes both orbit directions across 8 seeds while prompt boost still escapes.');
   setup();
   const small = createPickup(game.physics, 'gem', 0, 0, 0, false);
   const big = createPickup(game.physics, 'gem', 0, 0, 0, true);
