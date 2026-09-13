@@ -89,7 +89,7 @@ export function drawScene(
   }
   game.particles.draw(ctx);
   for (const hunter of game.hunters) if (hunter.body.isEnabled()) drawHunter(ctx, game, hunter);
-  if (game.magnetRemaining > 0) {
+  if (game.player.alive && game.magnetRemaining > 0) {
     const pos = game.player.body.translation();
     ctx.save(); ctx.translate(pos.x, pos.y);
     ctx.strokeStyle = '#f48ed544'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 12]);

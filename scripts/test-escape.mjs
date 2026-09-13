@@ -12,7 +12,7 @@ globalThis.localStorage = { getItem: () => null, setItem() {} };
 const temp = await mkdtemp(join(tmpdir(), 'sinv-escape-'));
 try {
   await build({ configFile: false, logLevel: 'silent', publicDir: false, build: { outDir: temp, lib: { entry: 'scripts/test-entry.ts', formats: ['es'], fileName: () => 'test.mjs' } } });
-  const { Game, RAPIER, DIFFICULTIES, createPickup, createHunter, hunterMaxSpeed, runCheatCommand, PhysicsContext, Navigation, createPlayer, updatePlayer, updateHunter, PLAYER_ACCEL, PLAYER_DAMPING, GEM_THRUST_GAIN } = await import(pathToFileURL(join(temp, 'test.mjs')));
+  const { Game, RAPIER, DIFFICULTIES, createPickup, createHunter, hunterMaxSpeed, runCheatCommand, PhysicsContext, Navigation, createPlayer, updatePlayer, updateHunter, PLAYER_ACCEL, PLAYER_DAMPING, GEM_THRUST_GAIN, MAGNET_DAMPING } = await import(pathToFileURL(join(temp, 'test.mjs')));
   await RAPIER.init();
   assert.equal(hunterMaxSpeed(0, 0, 1, 0.8), hunterMaxSpeed(0, 0, 1), 'Normal starting speed is unchanged');
   assert.ok(hunterMaxSpeed(150, 0, 1, 0.8) > hunterMaxSpeed(0, 0, 1, 0.8), 'hunter still accelerates with time');
@@ -354,7 +354,7 @@ try {
     const p = createPickup(game.physics, type, origin.x + dx, origin.y + dy, 0);
     game.pickups.push(p); return p;
   };
-  const magnet = add('magnet', 0), nearby = add('gem', 150), far = add('gem', 300);
+  const magnet = add('magnet', 0), nearby = add('gem', 150), far = add('gem', -800);
   const attracted = ['antimatter', 'orb', 'shield', 'boost', 'magnet'].map((type, i) => add(type, 100, 70 + i * 20));
   
   game.fixedUpdate(1 / 60);
@@ -367,7 +367,7 @@ try {
   const firstX = nearby.x;
   game.fixedUpdate(1 / 60);
   assert.ok(firstX - nearby.x > firstPull * 2, 'successive frames build speed under the magnetic force');
-  assert.equal(far.x, origin.x + 300, 'out-of-range pickup stays still');
+  assert.equal(far.x, origin.x - 800, 'out-of-range pickup stays still');
   for (let i = 0; i < 60; i++) game.fixedUpdate(1 / 60);
   assert.equal(nearby.taken, true, 'attracted gem collects via its moving sensor');
   attracted.forEach(p => assert.equal(p.taken, true, `${p.type} is attracted and collected`));
@@ -393,11 +393,65 @@ try {
   game.player.body.setTranslation({ x: turning.x, y: turning.y + 100 }, true);
   game.attractPickups(1 / 60);
   assert.ok(turning.x < turningX && turning.y > origin.y, 'momentum curves toward a moving ship instead of instantly changing direction');
-  game.player.body.setTranslation({ x: turning.x + 300, y: turning.y }, true);
+  game.player.body.setTranslation({ x: turning.x + 800, y: turning.y }, true);
   const released = { x: turning.x, y: turning.y };
   game.attractPickups(1 / 60);
   assert.deepEqual({ x: turning.x, y: turning.y }, released, 'leaving the field stops attraction');
   assert.equal(Math.hypot(turning.magnetVx, turning.magnetVy), 0, 'leaving the field clears momentum');
+
+  // Isolate the expanded field boundary from generated terrain.
+  game.navigation = new Navigation(4000, 4000, []);
+  game.player.body.setTranslation({ x: 1000, y: 1000 }, true);
+  const edgeGem = createPickup(game.physics, 'gem', 1720, 1000, 0);
+  const outsideGem = createPickup(game.physics, 'gem', 1721, 1000, 0);
+  game.pickups.push(edgeGem, outsideGem);
+  game.attractPickups(1 / 60);
+  assert.ok(edgeGem.x < 1720 && edgeGem.magnetVx < 0, 'gems are attracted at the expanded 720-unit boundary');
+  assert.equal(outsideGem.x, 1721, 'gems beyond the expanded boundary stay still');
+
+  // Straight flight and existing pickup momentum must not reverse the pull.
+  for (const radius of [100, 600]) {
+    for (let direction = 0; direction < 8; direction++) {
+      const angle = direction * Math.PI / 4;
+      const gem = createPickup(game.physics, 'gem', 1000 + Math.cos(angle) * radius, 1000 + Math.sin(angle) * radius, 0);
+      for (const velocity of [{ x: 0, y: 0 }, { x: 250, y: -150 }]) {
+        gem.magnetVx = velocity.x; gem.magnetVy = velocity.y;
+        game.player.body.setLinvel({ x: 400, y: 0 }, true);
+        const dx = 1000 - gem.x, dy = 1000 - gem.y;
+        game.attractPickups.call({
+          magnetRemaining: 12, player: game.player, navigation: game.navigation, pickups: [gem],
+        }, 1 / 60);
+        const retention = Math.exp(-MAGNET_DAMPING / 60);
+        const dvx = gem.magnetVx - velocity.x * retention, dvy = gem.magnetVy - velocity.y * retention;
+        assert.ok(dvx * dx + dvy * dy > 0, 'magnetic acceleration points toward the straight-flying ship');
+        assert.ok(Math.abs(dvx * dy - dvy * dx) < 1e-8, 'uncapped magnetic acceleration has no sideways component');
+        const colliderPosition = gem.collider.translation();
+        assert.ok(Math.hypot(colliderPosition.x - gem.x, colliderPosition.y - gem.y) < 0.001, 'rendered gem and pickup sensor stay aligned');
+      }
+      game.physics.unregister(gem.collider);
+      game.physics.world.removeCollider(gem.collider, false);
+    }
+  }
+
+  // A stopped ship should collect both orbit directions and an outgoing flyby.
+  game.player.body.setLinvel({ x: 0, y: 0 }, true);
+  for (const velocity of [{ x: 0, y: 268 }, { x: 0, y: -268 }, { x: 500, y: 100 }]) {
+    const gem = createPickup(game.physics, 'gem', 1200, 1000, 0);
+    gem.magnetVx = velocity.x; gem.magnetVy = velocity.y;
+    let reachedShip = false;
+    for (let frame = 0; frame < 600; frame++) {
+      game.attractPickups.call({
+        magnetRemaining: 12, player: game.player, navigation: game.navigation, pickups: [gem],
+      }, 1 / 60);
+      const distance = Math.hypot(gem.x - 1000, gem.y - 1000);
+      assert.ok(distance < 720, 'flyby momentum settles before leaving the field');
+      if (frame === 0) assert.ok(Math.abs(gem.y - 1000) > 1, 'damping preserves initial sideways motion');
+      if (distance < 29) { reachedShip = true; break; }
+    }
+    assert.ok(reachedShip, 'orbiting and outgoing gems spiral into collection range after stopping');
+    game.physics.unregister(gem.collider);
+    game.physics.world.removeCollider(gem.collider, false);
+  }
 
   // A pickup across a corridor wall is in range but must remain unreachable.
   setup(); controls.thrust = false; game.wells = [];
@@ -409,8 +463,7 @@ try {
   assert.equal(blocked.y, blockedY, 'magnetism cannot pull rewards through solid terrain');
   game.reset(42); assert.equal(game.magnetRemaining, 0, 'restart clears magnetism');
   console.log('PASS: magnet capsule contacts, range, sensor collection, duplicate protection, pause, refresh, expiry, wall occlusion and reset.');
-  // Use an actual Binary reward: the magnet must not extract its triple
-  // upgrade from outside the well, but a close pass still gets assistance.
+  // Use an actual Binary reward to verify its expanded inner field and reward.
   setup(); controls.thrust = false;
   const dangerGem = game.pickups.find(p => p.type === 'gem' && p.bonus);
   assert.ok(dangerGem, 'generated Binary contains danger gems');
@@ -421,18 +474,18 @@ try {
   const outward = { x: (dangerGem.x - well.x) / gemRadius, y: (dangerGem.y - well.y) / gemRadius };
   const placeOutsideGem = distance => game.player.body.setTranslation({ x: gemStart.x + outward.x * distance, y: gemStart.y + outward.y * distance }, true);
   game.magnetUntil = game.playT + 12;
-  placeOutsideGem(well.radius + 10 - gemRadius);
-  for (let i = 0; i < 120; i++) game.attractPickups(1 / 60);
-  assert.deepEqual({ x: dangerGem.x, y: dangerGem.y }, gemStart, 'safe rim cannot vacuum a danger gem out of the Binary');
-  placeOutsideGem(81);
+  placeOutsideGem(241);
   game.attractPickups(1 / 60);
   assert.deepEqual({ x: dangerGem.x, y: dangerGem.y }, gemStart, 'big-gem attraction requires the inner magnet ring');
+  placeOutsideGem(239);
+  game.attractPickups(1 / 60);
+  assert.ok(Math.hypot(dangerGem.x - gemStart.x, dangerGem.y - gemStart.y) > 0, 'big gems are attracted just inside the expanded 240-unit boundary');
   placeOutsideGem(70);
   const thrustBeforeClosePass = game.player.engineMultiplier;
   for (let i = 0; i < 30; i++) game.fixedUpdate(1 / 60);
   assert.equal(dangerGem.taken, true, 'close-pass magnet assistance collects through the real sensor');
   assert.ok(game.player.engineMultiplier >= thrustBeforeClosePass + 3 * GEM_THRUST_GAIN - 1e-10, 'assisted danger gems retain their full triple reward');
-  console.log('PASS: Binary danger gems resist safe-rim extraction and retain close-pass magnet assistance and triple thrust.');
+  console.log('PASS: Binary danger gems use the expanded inner magnet ring and retain triple thrust.');
   setup(); controls.thrust = false; game.wells = [];
   const shardX = game.gate.layout.barrier.x;
   game.player.body.setTranslation({ x: shardX - 170, y: game.gate.y }, true);

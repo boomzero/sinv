@@ -23,3 +23,4 @@ export { drawSectorMap } from '../src/render/chart';
 export { FrameStats } from '../src/frame-stats';
 export { PLAYER_ACCEL, PLAYER_DAMPING } from '../src/constants';
 export { GEM_THRUST_GAIN } from '../src/world/exit';
+export { MAGNET_DAMPING } from '../src/constants';

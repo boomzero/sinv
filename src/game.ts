@@ -28,7 +28,7 @@ import type {
 } from './entities/types';
 import {
   SHIELD_INVULNERABILITY,
-  MAGNET_DURATION, MAGNET_RADIUS, MAGNET_BONUS_RADIUS, MAGNET_ACCEL, MAGNET_SOFTENING, MAGNET_MAX_SPEED,
+  MAGNET_DURATION, MAGNET_RADIUS, MAGNET_BONUS_RADIUS, MAGNET_ACCEL, MAGNET_SOFTENING, MAGNET_MAX_SPEED, MAGNET_DAMPING,
   GEM_SCORE,
   GEM_BONUS_MULT,
   MULT_MAX,
@@ -319,6 +319,8 @@ export class Game {
   private attractPickups(dt: number): void {
     const active = this.magnetRemaining > 0 && this.player.alive;
     const pos = this.player.body.translation();
+    const retention = Math.exp(-MAGNET_DAMPING * dt);
+    const pullDt = (1 - retention) / MAGNET_DAMPING;
     for (const pickup of this.pickups) {
       if (pickup.taken) continue;
       const dx = pos.x - pickup.x, dy = pos.y - pickup.y, distance = Math.hypot(dx, dy);
@@ -331,11 +333,12 @@ export class Game {
         continue;
       }
       // A softened inverse-square force starts gently and strengthens nearby.
-      // Retaining vector velocity lets the pull bend naturally as the ship turns.
+      // Gradually shed momentum so curved paths spiral inward instead of
+      // sustaining an orbit or slingshotting away after a close pass.
       const acceleration = MAGNET_ACCEL / (1 + (distance / MAGNET_SOFTENING) ** 2);
       const oldVx = pickup.magnetVx, oldVy = pickup.magnetVy;
-      pickup.magnetVx += dx / distance * acceleration * dt;
-      pickup.magnetVy += dy / distance * acceleration * dt;
+      pickup.magnetVx = oldVx * retention + dx / distance * acceleration * pullDt;
+      pickup.magnetVy = oldVy * retention + dy / distance * acceleration * pullDt;
       const speed = Math.hypot(pickup.magnetVx, pickup.magnetVy);
       if (speed > MAGNET_MAX_SPEED) {
         pickup.magnetVx *= MAGNET_MAX_SPEED / speed;

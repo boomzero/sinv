@@ -110,12 +110,13 @@ export const CLOSE_CALL_COOLDOWN = 10.0;   // seconds of lockout after scoring
 
 // Temporary pickup attraction; collecting another capsule refreshes the timer.
 export const MAGNET_DURATION = 12;
-export const MAGNET_RADIUS = 240;
+export const MAGNET_RADIUS = 720;
 // Big danger gems still get collection assistance, but require a close pass.
-export const MAGNET_BONUS_RADIUS = 80;
+export const MAGNET_BONUS_RADIUS = 240;
 export const MAGNET_ACCEL = 1800;
 export const MAGNET_SOFTENING = 100;
 export const MAGNET_MAX_SPEED = 650;
+export const MAGNET_DAMPING = 0.8; // per second; brief orbits settle into collection
 export const MAGNET_COUNT = 5;
 
 export const SHIELD_INVULNERABILITY = 1; // seconds after absorbing a damaging hit

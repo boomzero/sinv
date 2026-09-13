@@ -66,10 +66,22 @@ export class Navigation {
   }
 
   clearLine(a: Point, b: Point, margin = CLEARANCE): boolean {
-    const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 12));
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      if (!this.clearPoint({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, margin)) return false;
+    const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x);
+    const minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y);
+    if (minX < margin || minY < margin || maxX > this.width - margin || maxY > this.height - margin) return false;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 12));
+    const point = { x: 0, y: 0 };
+    // Reject distant terrain once per segment, rather than scanning the whole
+    // map at every sample along each pickup's magnetic line of sight.
+    for (const box of this.shapes) {
+      if (maxX < box.minX - margin || minX > box.maxX + margin || maxY < box.minY - margin || minY > box.maxY + margin) continue;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        point.x = a.x + dx * t; point.y = a.y + dy * t;
+        if (point.x < box.minX - margin || point.x > box.maxX + margin || point.y < box.minY - margin || point.y > box.maxY + margin) continue;
+        if (distanceToStructure(point, box.shape) < margin) return false;
+      }
     }
     return true;
   }
