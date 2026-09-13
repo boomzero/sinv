@@ -55,7 +55,19 @@ export function createCheatConsole(game: Game): { sync(): void; isOpen(): boolea
       if (output.querySelector('.console-result')) {
         const archive = document.createElement('details');
         const title = document.createElement('summary');
-        title.textContent = `Run ${displayedRun} — history only`;
+        title.textContent = `Run ${displayedRun} — history`;
+        const execute = document.createElement('button'); execute.type = 'button';
+        execute.textContent = 'Execute';
+        execute.setAttribute('aria-label', `Execute commands from run ${displayedRun}`);
+        execute.title = 'Replay these commands in the current run';
+        const sources = Array.from(output.querySelectorAll<HTMLElement>('.console-result'))
+          .map(row => row.dataset.command!);
+        execute.addEventListener('click', event => {
+          event.preventDefault(); event.stopPropagation();
+          for (const source of sources) executeCommand(source);
+          input.focus();
+        });
+        title.append(execute);
         const log = document.createElement('div'); log.className = 'console-log';
         log.append(...Array.from(output.children));
         archive.append(title, log);
@@ -79,14 +91,15 @@ export function createCheatConsole(game: Game): { sync(): void; isOpen(): boolea
   button.addEventListener('click', open);
   dialog.querySelector('[data-close]')!.addEventListener('click', close);
   dialog.addEventListener('cancel', e => { e.preventDefault(); close(); });
-  dialog.querySelector('form')!.addEventListener('submit', e => {
-    e.preventDefault(); const source = input.value.trim(); if (!source) return;
+  const executeCommand = (source: string) => {
+    refresh();
     history.push(source); cursor = history.length;
     if (source.toLowerCase() === 'help') {
       dialog.querySelector('details')!.open = true;
     } else {
       output.querySelector('.console-empty')?.remove();
       const row = document.createElement('div'); row.className = 'console-result';
+      row.dataset.command = source;
       const command = document.createElement('code'); command.textContent = `› ${source}`;
       const result = document.createElement('span');
       const message = runCheatCommand(game, source);
@@ -95,7 +108,11 @@ export function createCheatConsole(game: Game): { sync(): void; isOpen(): boolea
       row.append(command, result); output.append(row);
       while (output.children.length > 30) output.firstElementChild!.remove();
     }
-    refresh(); output.scrollTop = output.scrollHeight; input.value = ''; input.focus();
+    refresh(); output.scrollTop = output.scrollHeight;
+  };
+  dialog.querySelector('form')!.addEventListener('submit', e => {
+    e.preventDefault(); const source = input.value.trim(); if (!source) return;
+    executeCommand(source); input.value = ''; input.focus();
   });
   window.addEventListener('keydown', e => {
     if (dialog.open) {

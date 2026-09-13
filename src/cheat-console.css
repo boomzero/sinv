@@ -48,5 +48,7 @@
 .cheat-console .console-current { margin-top: 14px; font-size: 11px; color: #a8cfdf; }
 
 .console-archives details { margin-top: 8px; }
+.console-archives summary { min-height: 48px; }
+.console-archives summary button { float: right; margin: -3px 0 -3px 12px; padding: 3px 10px; color: #8be1ed; }
 .console-archives .console-log { border: 0; border-radius: 0; }
 .console-archives .console-success { color: #809cae; }
