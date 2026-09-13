@@ -7,6 +7,9 @@ export class FixedStepAccumulator {
 
   reset(): void { this.accumulated = 0; }
 
+  /** Fraction between the previous and current simulation snapshots. */
+  get alpha(): number { return Math.min(1, this.accumulated / FIXED_DT); }
+
   advance(elapsed: number, update: (dt: number) => void): void {
     // Drop excess wall time, keeping the fractional step for smooth cadence.
     // Under overload the simulation slows instead of compounding the stall.

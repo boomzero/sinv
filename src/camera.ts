@@ -9,6 +9,7 @@ export class Camera {
     this.x = x;
     this.y = y;
     this.shake = 0;
+    this.shakeX = this.shakeY = 0;
   }
 
   follow(
@@ -37,8 +38,8 @@ export class Camera {
   /** Apply the world->screen transform for a viewport of w x h CSS pixels. */
   apply(ctx: CanvasRenderingContext2D, w: number, h: number): void {
     ctx.translate(
-      Math.round(w / 2 - this.x + this.shakeX),
-      Math.round(h / 2 - this.y + this.shakeY),
+      w / 2 - this.x + this.shakeX,
+      h / 2 - this.y + this.shakeY,
     );
   }
 

@@ -1,0 +1,38 @@
+<!doctype html><html><head><title>Frame timing benchmark</title><style>body{margin:0;background:#050510;color:white;font:14px monospace}canvas{width:100vw;height:100vh}pre{position:fixed;top:0;left:0;background:#000c;padding:12px;white-space:pre-wrap}</style></head><body><canvas></canvas><pre>Measuring…</pre><script type="module">
+import RAPIER from '@dimforge/rapier2d-compat';
+import { Game } from '../src/game';
+import { FixedStepAccumulator } from '../src/fixed-step';
+await RAPIER.init();
+const game = new Game(); game.reset(42); game.launch();
+const canvas = document.querySelector('canvas'), output = document.querySelector('pre');
+const dpr = Number(new URLSearchParams(location.search).get('dpr')) || devicePixelRatio;
+canvas.width = innerWidth*dpr; canvas.height = innerHeight*dpr;
+const ctx = canvas.getContext('2d');
+const next = () => new Promise(requestAnimationFrame);
+const results = [];
+const stats = a => { const s = [...a].sort((a,b)=>a-b); return {p50:+s[Math.floor(s.length*.5)].toFixed(2),p95:+s[Math.floor(s.length*.95)].toFixed(2),p99:+s[Math.floor(s.length*.99)].toFixed(2),max:+s.at(-1).toFixed(2)}; };
+for (const scene of ['flight', 'binary', 'halo', 'exit']) {
+  const location = scene === 'exit' ? game.gate : game.landmarks.find(l=>l.kind===scene) ?? game.player.body.translation();
+  const intervals = [], draw = [], update = [];
+  let last = await next();
+  const clock = new FixedStepAccumulator();
+  for (let i = 0; i < 300; i++) {
+    const now = await next();
+    const start = performance.now();
+    if (scene === 'flight') {
+      game.player.hull = 100; game.shieldUntil = game.playT + 100;
+      clock.advance((now-last)/1000, dt=>game.fixedUpdate(dt));
+    } else game.time += (now-last)/1000;
+    const physicsEnd = performance.now();
+    if (scene !== 'flight') game.camera.snapTo(location.x + Math.sin(i/120)*120, location.y);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    game.render(ctx,innerWidth,innerHeight,clock.alpha);
+    const end = performance.now();
+    if (i>=60) { intervals.push(now-last); draw.push(end-physicsEnd); update.push(physicsEnd-start); }
+    last=now;
+  }
+  results.push({scene, frame:stats(intervals),draw:stats(draw),update:stats(update),over25ms:intervals.filter(n=>n>25).length});
+  output.textContent=JSON.stringify({dpr,width:innerWidth,height:innerHeight,results},null,2);
+}
+output.dataset.complete='true';
+</script></body></html>

@@ -64,12 +64,12 @@ export function drawScene(
   w: number,
   h: number,
 ): void {
-  drawStarfield(ctx, game.camera, w, h, game.time, game.mapW, game.mapH);
+  drawStarfield(ctx, game.renderCamera, w, h, game.time, game.mapW, game.mapH);
 
   ctx.save();
-  game.camera.apply(ctx, w, h);
+  game.renderCamera.apply(ctx, w, h);
 
-  const cx = game.camera.x - game.camera.shakeX, cy = game.camera.y - game.camera.shakeY;
+  const cx = game.renderCamera.x - game.renderCamera.shakeX, cy = game.renderCamera.y - game.renderCamera.shakeY;
   const visible = (x: number, y: number, radius: number): boolean =>
     Math.abs(x - cx) <= w / 2 + radius + 2 && Math.abs(y - cy) <= h / 2 + radius + 2;
 
@@ -79,18 +79,18 @@ export function drawScene(
   for (const landmark of game.landmarks) {
     if (visible(landmark.x, landmark.y, landmark.radius + 150)) drawLandmark(ctx, landmark, game.time);
   }
-  drawGate(ctx, game);
+  if (visible(game.gate.x, game.gate.y, 1000)) drawGate(ctx, game);
   for (const p of game.pickups) {
-    if (!p.taken && visible(p.x, p.y, 64)) drawPickup(ctx, p, game.time);
+    if (!p.taken && visible(p.x, p.y, 64)) drawPickup(ctx, p, game.time, game.motion.position(p, p));
   }
   for (const a of game.asteroids) {
-    const pos = a.body.translation();
-    if (visible(pos.x, pos.y, a.radius + 4)) drawAsteroid(ctx, a);
+    const pos = game.motion.body(a.body);
+    if (visible(pos.x, pos.y, a.radius + 4)) drawAsteroid(ctx, a, pos);
   }
-  game.particles.draw(ctx);
+  game.particles.draw(ctx, game.motion.alpha);
   for (const hunter of game.hunters) if (hunter.body.isEnabled()) drawHunter(ctx, game, hunter);
   if (game.player.alive && game.magnetRemaining > 0) {
-    const pos = game.player.body.translation();
+    const pos = game.motion.body(game.player.body);
     ctx.save(); ctx.translate(pos.x, pos.y);
     ctx.strokeStyle = '#f48ed544'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 12]);
     ctx.beginPath(); ctx.arc(0, 0, MAGNET_RADIUS, 0, Math.PI * 2); ctx.stroke();
@@ -275,14 +275,14 @@ function drawGate(ctx: CanvasRenderingContext2D, game: Game): void {
   }
 }
 
-function drawPickup(ctx: CanvasRenderingContext2D, p: Pickup, time: number): void {
+function drawPickup(ctx: CanvasRenderingContext2D, p: Pickup, time: number, position: { x: number; y: number } = p): void {
   const bob = Math.sin(time * 2.2 + p.phase) * 3;
   // Bonus gems are bigger and pulse harder so the extra value reads at a glance
   const base = p.bonus ? 1.5 : 1;
   const s = base * (1 + (p.bonus ? 0.12 : 0.07) * Math.sin(time * 3 + p.phase));
   const sprite = getSprites()[p.type];
   ctx.save();
-  ctx.translate(p.x, p.y + bob);
+  ctx.translate(position.x, position.y + bob);
   if (p.bonus) {
     ctx.strokeStyle = `rgba(65,255,224,${0.35 + 0.25 * Math.sin(time * 3 + p.phase)})`;
     ctx.lineWidth = 1.5;
@@ -298,8 +298,8 @@ function drawPickup(ctx: CanvasRenderingContext2D, p: Pickup, time: number): voi
 function drawPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
   const player = game.player;
   if (!player.alive) return;
-  const pos = player.body.translation();
-  const rot = player.body.rotation();
+  const pos = game.motion.body(player.body);
+  const rot = pos.angle;
   ctx.save();
   ctx.translate(pos.x, pos.y);
 
@@ -336,7 +336,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
 }
 
 function drawHunter(ctx: CanvasRenderingContext2D, game: Game, hunter: Hunter): void {
-  const pos = hunter.body.translation();
+  const pos = game.motion.body(hunter.body);
   // Swallowed by a black hole: the ship is gone. In the last second before it
   // returns, a faint portal forms at the spawn corner where it'll re-emerge.
   if (game.respawning(hunter)) {
@@ -584,7 +584,7 @@ function drawDebugWorld(ctx: CanvasRenderingContext2D, game: Game): void {
   // the left edge, vertically centered — clear of the score (top-left) and the
   // hull/boost bars (bottom-left).
   ctx.save();
-  const cam = game.camera;
+  const cam = game.renderCamera;
   const boxH = 88;
   const x0 = 8;
   const y0 = Math.round(game.viewH / 2 - boxH / 2);

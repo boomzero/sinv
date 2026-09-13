@@ -4,6 +4,7 @@ import { PhysicsContext, createWalls } from './physics';
 import { BLAST_RANGE, GEM_THRUST_GAIN, MAX_BLASTS, EXIT_REFERENCE_ENGINE, EXIT_WELL_STRENGTH, EXIT_FIELD_DRAG, outsideExit } from './world/exit';
 import { Input } from './input';
 import { Camera } from './camera';
+import { RenderMotion } from './render/motion';
 import { Navigation } from './ai/navigation';
 import { DIFFICULTIES, loadDifficultyIndex, loadHighScore, saveHighScore } from './difficulty';
 import { Particles } from './render/particles';
@@ -97,6 +98,8 @@ function spawnPositions(mapW: number, mapH: number) {
 export class Game {
   readonly input = new Input();
   readonly camera = new Camera();
+  readonly renderCamera = new Camera();
+  readonly motion = new RenderMotion();
   readonly particles = new Particles();
 
   state: GameState = 'menu';
@@ -224,6 +227,7 @@ export class Game {
 
   reset(seed: number): void {
     this.runId++;
+    this.motion.reset();
     this.input.clearHeld();
     if (this.physics) this.physics.free();
     if (this.eventQueue) this.eventQueue.free();
@@ -435,6 +439,12 @@ export class Game {
         return;
       }
     }
+
+    this.motion.capture(this.camera, this.camera);
+    this.motion.capture(this.player.body, this.player.body.translation(), this.player.body.rotation());
+    for (const a of this.asteroids) if (!a.fixed) this.motion.capture(a.body, a.body.translation(), a.body.rotation());
+    for (const h of this.hunters) this.motion.capture(h.body, h.body.translation(), h.body.rotation());
+    for (const p of this.pickups) if (!p.taken) this.motion.capture(p, p);
 
     if (this.state === 'playing') {
       this.playT += dt;
@@ -950,7 +960,13 @@ export class Game {
     this.particles.burst(g.x, g.y, 60, 300, 1.2, 4, '#5dff8a');
   }
 
-  render(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+  render(ctx: CanvasRenderingContext2D, w: number, h: number, alpha = 1): void {
+    this.motion.alpha = this.state === 'playing' ? alpha : 1;
+    const camera = this.motion.position(this.camera, this.camera);
+    this.renderCamera.x = camera.x;
+    this.renderCamera.y = camera.y;
+    this.renderCamera.shakeX = this.camera.shakeX;
+    this.renderCamera.shakeY = this.camera.shakeY;
     this.viewW = w;
     this.viewH = h;
     drawScene(ctx, this, w, h);

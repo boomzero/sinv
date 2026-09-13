@@ -3,7 +3,7 @@ import { materialVersion, paintMaterial } from './materials';
 
 const cache = new WeakMap<Asteroid, { version: number; canvas: HTMLCanvasElement }>();
 
-export function drawAsteroid(ctx: CanvasRenderingContext2D, a: Asteroid): void {
+export function drawAsteroid(ctx: CanvasRenderingContext2D, a: Asteroid, pose?: { x: number; y: number; angle: number }): void {
   const version = materialVersion();
   let cached = cache.get(a);
   if (!cached || cached.version !== version) {
@@ -45,10 +45,10 @@ export function drawAsteroid(ctx: CanvasRenderingContext2D, a: Asteroid): void {
     cached = { version, canvas };
     cache.set(a, cached);
   }
-  const pos = a.body.translation();
+  const pos = pose ?? a.body.translation();
   ctx.save();
   ctx.translate(pos.x, pos.y);
-  ctx.rotate(a.body.rotation());
+  ctx.rotate(pose?.angle ?? a.body.rotation());
   ctx.drawImage(cached.canvas, -cached.canvas.width / 2, -cached.canvas.height / 2);
   ctx.restore();
 }

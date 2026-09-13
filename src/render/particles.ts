@@ -1,6 +1,8 @@
 interface Particle {
   x: number;
   y: number;
+  previousX: number;
+  previousY: number;
   vx: number;
   vy: number;
   life: number;
@@ -13,6 +15,8 @@ const CAP = 600;
 
 export class Particles {
   private items: Particle[] = [];
+  private pool: Particle[] = [];
+  private replacement = 0;
 
   emit(
     x: number,
@@ -23,8 +27,16 @@ export class Particles {
     size: number,
     color: string,
   ): void {
-    if (this.items.length >= CAP) this.items.shift();
-    this.items.push({ x, y, vx, vy, life, maxLife: life, size, color });
+    // Reuse expired particles and overwrite in O(1) when a burst fills the pool.
+    const full = this.items.length >= CAP;
+    const p = full ? this.items[this.replacement] : this.pool.pop() ?? {} as Particle;
+    p.x = p.previousX = x;
+    p.y = p.previousY = y;
+    p.vx = vx; p.vy = vy;
+    p.life = p.maxLife = life;
+    p.size = size; p.color = color;
+    if (full) this.replacement = (this.replacement + 1) % CAP;
+    else this.items.push(p);
   }
 
   burst(
@@ -59,8 +71,11 @@ export class Particles {
       if (p.life <= 0) {
         items[i] = items[items.length - 1];
         items.pop();
+        this.pool.push(p);
         continue;
       }
+      p.previousX = p.x;
+      p.previousY = p.y;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.vx *= 1 - 1.5 * dt;
@@ -69,7 +84,7 @@ export class Particles {
   }
 
   /** Draw in world space (camera transform must already be applied). */
-  draw(ctx: CanvasRenderingContext2D): void {
+  draw(ctx: CanvasRenderingContext2D, alpha = 1): void {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (const p of this.items) {
@@ -77,12 +92,15 @@ export class Particles {
       ctx.globalAlpha = t * 0.9;
       ctx.fillStyle = p.color;
       const s = p.size * (0.4 + 0.6 * t);
-      ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+      ctx.fillRect(p.previousX + (p.x - p.previousX) * alpha - s / 2,
+        p.previousY + (p.y - p.previousY) * alpha - s / 2, s, s);
     }
     ctx.restore();
   }
 
   clear(): void {
+    this.pool.push(...this.items);
     this.items.length = 0;
+    this.replacement = 0;
   }
 }

@@ -35,8 +35,8 @@ export function drawStarfield(
   ctx.fillRect(0, 0, w, h);
 
   // Use the exact same transform as terrain, including camera shake.
-  const offsetX = Math.round(w / 2 - cam.x + cam.shakeX);
-  const offsetY = Math.round(h / 2 - cam.y + cam.shakeY);
+  const offsetX = w / 2 - cam.x + cam.shakeX;
+  const offsetY = h / 2 - cam.y + cam.shakeY;
   if (nebula.complete && nebula.naturalWidth) {
     const padding = Math.max(w, h, 1200);
     const scale = Math.max((mapW + padding * 2) / nebula.naturalWidth, (mapH + padding * 2) / nebula.naturalHeight);

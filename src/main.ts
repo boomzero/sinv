@@ -141,7 +141,7 @@ async function boot(): Promise<void> {
     last = now;
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    game.render(ctx, canvas.clientWidth, canvas.clientHeight);
+    game.render(ctx, canvas.clientWidth, canvas.clientHeight, cheatConsole.isOpen() ? 1 : simulationClock.alpha);
     syncControls();
     cheatConsole.sync();
     const offset = game.input.joystickOffset;

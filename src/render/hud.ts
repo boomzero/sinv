@@ -206,7 +206,7 @@ function drawEdgeArrow(
 ): void {
   // toScreen works in real (unscaled) canvas pixels, so convert its result
   // into the logical space the caller's ctx.scale(scale, scale) expects.
-  const real = game.camera.toScreen(tx, ty, w, h);
+  const real = game.renderCamera.toScreen(tx, ty, w, h);
   const x = real.x / scale;
   const y = real.y / scale;
   const sw = w / scale;
