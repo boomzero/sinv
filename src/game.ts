@@ -29,7 +29,7 @@ import type {
 } from './entities/types';
 import {
   SHIELD_INVULNERABILITY,
-  MAGNET_DURATION, MAGNET_RADIUS, MAGNET_BONUS_RADIUS, MAGNET_ACCEL, MAGNET_SOFTENING, MAGNET_MAX_SPEED, MAGNET_DAMPING,
+  MAGNET_DURATION, MAGNET_RADIUS, MAGNET_BONUS_RADIUS, MAGNET_ACCEL, MAGNET_MIN_ACCEL, MAGNET_SOFTENING, MAGNET_MAX_SPEED, MAGNET_DAMPING,
   GEM_SCORE,
   GEM_BONUS_MULT,
   MULT_MAX,
@@ -329,17 +329,15 @@ export class Game {
       if (pickup.taken) continue;
       const dx = pos.x - pickup.x, dy = pos.y - pickup.y, distance = Math.hypot(dx, dy);
       const radius = pickup.type === 'gem' && pickup.bonus ? MAGNET_BONUS_RADIUS : MAGNET_RADIUS;
-      const clearance = PICKUP_RADIUS[pickup.type] + 6;
-      // Release momentum when the field is lost; rewards must stay within
-      // their collection range and cannot drift through station walls.
-      if (!active || distance < 1 || distance > radius || !this.navigation.clearLine(pickup, pos, clearance)) {
+      // Magnetism passes through terrain. Release momentum when the field is lost.
+      if (!active || distance < 1 || distance > radius) {
         pickup.magnetVx = 0; pickup.magnetVy = 0;
         continue;
       }
-      // A softened inverse-square force starts gently and strengthens nearby.
+      // Keep a strong baseline pull at range, with extra attraction nearby.
       // Gradually shed momentum so curved paths spiral inward instead of
       // sustaining an orbit or slingshotting away after a close pass.
-      const acceleration = MAGNET_ACCEL / (1 + (distance / MAGNET_SOFTENING) ** 2);
+      const acceleration = MAGNET_MIN_ACCEL + (MAGNET_ACCEL - MAGNET_MIN_ACCEL) / (1 + (distance / MAGNET_SOFTENING) ** 2);
       const oldVx = pickup.magnetVx, oldVy = pickup.magnetVy;
       pickup.magnetVx = oldVx * retention + dx / distance * acceleration * pullDt;
       pickup.magnetVy = oldVy * retention + dy / distance * acceleration * pullDt;
@@ -351,12 +349,11 @@ export class Game {
       const stepX = (oldVx + pickup.magnetVx) * 0.5 * dt;
       const stepY = (oldVy + pickup.magnetVy) * 0.5 * dt;
       const scale = Math.min(1, distance / Math.max(1e-6, Math.hypot(stepX, stepY)));
-      const next = { x: pickup.x + stepX * scale, y: pickup.y + stepY * scale };
-      // Momentum can point away from the ship, so check the actual swept path too.
-      if (!this.navigation.clearLine(pickup, next, clearance)) {
-        pickup.magnetVx = 0; pickup.magnetVy = 0;
-        continue;
-      }
+      const next = this.navigation.slideMove(
+        pickup, { x: pickup.x + stepX * scale, y: pickup.y + stepY * scale },
+        { x: pickup.magnetVx, y: pickup.magnetVy }, PICKUP_RADIUS[pickup.type],
+      );
+      pickup.magnetVx = next.vx; pickup.magnetVy = next.vy;
       pickup.x = next.x; pickup.y = next.y;
       pickup.collider.setTranslation({ x: pickup.x, y: pickup.y });
     }

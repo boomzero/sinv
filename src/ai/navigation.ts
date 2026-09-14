@@ -73,7 +73,7 @@ export class Navigation {
     const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 12));
     const point = { x: 0, y: 0 };
     // Reject distant terrain once per segment, rather than scanning the whole
-    // map at every sample along each pickup's magnetic line of sight.
+    // map at every sample along a clearance query.
     for (const box of this.shapes) {
       if (maxX < box.minX - margin || minX > box.maxX + margin || maxY < box.minY - margin || minY > box.maxY + margin) continue;
       for (let i = 0; i <= steps; i++) {
@@ -84,6 +84,60 @@ export class Navigation {
       }
     }
     return true;
+  }
+
+  /** Move a pickup to contact, retaining only momentum along the wall. */
+  slideMove(start: Point, end: Point, velocity: Point, margin: number): { x: number; y: number; vx: number; vy: number } {
+    const pos = { ...start }, remaining = { x: end.x - start.x, y: end.y - start.y };
+    let vx = velocity.x, vy = velocity.y;
+    for (let contact = 0; contact < 4; contact++) {
+      const next = { x: pos.x + remaining.x, y: pos.y + remaining.y };
+      if (this.clearLine(pos, next, margin)) {
+        return { ...next, vx, vy };
+      }
+      // Keep the full swept pickup radius clear, including around corners.
+      let lo = 0, hi = 1;
+      for (let i = 0; i < 12; i++) {
+        const t = (lo + hi) / 2;
+        if (this.clearLine(pos, { x: pos.x + remaining.x * t, y: pos.y + remaining.y * t }, margin)) lo = t;
+        else hi = t;
+      }
+      pos.x += remaining.x * lo; pos.y += remaining.y * lo;
+      remaining.x *= 1 - lo; remaining.y *= 1 - lo;
+      const normal = this.nearestWallNormal(pos);
+      const inwardStep = Math.min(0, remaining.x * normal.x + remaining.y * normal.y);
+      const inwardSpeed = Math.min(0, vx * normal.x + vy * normal.y);
+      remaining.x -= inwardStep * normal.x; remaining.y -= inwardStep * normal.y;
+      vx -= inwardSpeed * normal.x; vy -= inwardSpeed * normal.y;
+      if (Math.hypot(remaining.x, remaining.y) < 1e-6) break;
+    }
+    return { ...pos, vx, vy };
+  }
+
+  private nearestWallNormal(p: Point): Point {
+    let nearest = p.x, normal = { x: 1, y: 0 };
+    for (const edge of [
+      { distance: this.width - p.x, x: -1, y: 0 },
+      { distance: p.y, x: 0, y: 1 },
+      { distance: this.height - p.y, x: 0, y: -1 },
+    ]) {
+      if (edge.distance < nearest) { nearest = edge.distance; normal = { x: edge.x, y: edge.y }; }
+    }
+    for (const { shape, minX, maxX, minY, maxY } of this.shapes) {
+      if (p.x < minX - nearest || p.x > maxX + nearest || p.y < minY - nearest || p.y > maxY + nearest) continue;
+      const v = shape.verts;
+      for (let i = 0; i < v.length; i += 2) {
+        const j = (i + 2) % v.length;
+        const ax = shape.x + v[i], ay = shape.y + v[i + 1];
+        const dx = v[j] - v[i], dy = v[j + 1] - v[i + 1];
+        const t = Math.max(0, Math.min(1, ((p.x - ax) * dx + (p.y - ay) * dy) / Math.max(1e-12, dx * dx + dy * dy)));
+        const nx = p.x - ax - dx * t, ny = p.y - ay - dy * t, distance = Math.hypot(nx, ny);
+        if (distance > 1e-9 && distance < nearest) {
+          nearest = distance; normal = { x: nx / distance, y: ny / distance };
+        }
+      }
+    }
+    return normal;
   }
 
   private nearestNode(p: Point, margin = HUNTER_RADIUS - 0.5): number | null {

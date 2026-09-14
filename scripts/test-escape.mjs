@@ -399,18 +399,22 @@ try {
   assert.deepEqual({ x: turning.x, y: turning.y }, released, 'leaving the field stops attraction');
   assert.equal(Math.hypot(turning.magnetVx, turning.magnetVy), 0, 'leaving the field clears momentum');
 
-  // Isolate the expanded field boundary from generated terrain.
+  // Isolate the field boundary from generated terrain.
   game.navigation = new Navigation(4000, 4000, []);
   game.player.body.setTranslation({ x: 1000, y: 1000 }, true);
-  const edgeGem = createPickup(game.physics, 'gem', 1720, 1000, 0);
-  const outsideGem = createPickup(game.physics, 'gem', 1721, 1000, 0);
+  const edgeGem = createPickup(game.physics, 'gem', 1480, 1000, 0);
+  const outsideGem = createPickup(game.physics, 'gem', 1481, 1000, 0);
   game.pickups.push(edgeGem, outsideGem);
   game.attractPickups(1 / 60);
-  assert.ok(edgeGem.x < 1720 && edgeGem.magnetVx < 0, 'gems are attracted at the expanded 720-unit boundary');
-  assert.equal(outsideGem.x, 1721, 'gems beyond the expanded boundary stay still');
+  assert.ok(edgeGem.x < 1480 && edgeGem.magnetVx < 0, 'gems are attracted at the 480-unit boundary');
+  assert.equal(outsideGem.x, 1481, 'gems beyond the boundary stay still');
+  for (let i = 0; i < 240; i++) {
+    game.attractPickups.call({ magnetRemaining: 12, player: game.player, navigation: game.navigation, pickups: [edgeGem] }, 1 / 60);
+  }
+  assert.ok(Math.hypot(edgeGem.x - 1000, edgeGem.y - 1000) < 29, 'a resting pickup at the outer edge reaches collection range within four seconds');
 
   // Straight flight and existing pickup momentum must not reverse the pull.
-  for (const radius of [100, 600]) {
+  for (const radius of [100, 400]) {
     for (let direction = 0; direction < 8; direction++) {
       const angle = direction * Math.PI / 4;
       const gem = createPickup(game.physics, 'gem', 1000 + Math.cos(angle) * radius, 1000 + Math.sin(angle) * radius, 0);
@@ -444,7 +448,7 @@ try {
         magnetRemaining: 12, player: game.player, navigation: game.navigation, pickups: [gem],
       }, 1 / 60);
       const distance = Math.hypot(gem.x - 1000, gem.y - 1000);
-      assert.ok(distance < 720, 'flyby momentum settles before leaving the field');
+      assert.ok(distance < 480, 'flyby momentum settles before leaving the field');
       if (frame === 0) assert.ok(Math.abs(gem.y - 1000) > 1, 'damping preserves initial sideways motion');
       if (distance < 29) { reachedShip = true; break; }
     }
@@ -453,16 +457,58 @@ try {
     game.physics.world.removeCollider(gem.collider, false);
   }
 
-  // A pickup across a corridor wall is in range but must remain unreachable.
+  // Repositioning draws a stuck gem along a wall and around its end, at any angle.
+  for (let direction = 0; direction < 8; direction++) {
+    const angle = direction * Math.PI / 4;
+    const rotate = (x, y) => ({ x: 1000 + x * Math.cos(angle) - y * Math.sin(angle), y: 1000 + x * Math.sin(angle) + y * Math.cos(angle) });
+    const verts = [-120, -15, 120, -15, 120, 15, -120, 15];
+    const wall = { x: 0, y: 0, material: 'metal', verts: verts.flatMap((_, i) => {
+      if (i % 2) return [];
+      const p = rotate(verts[i], verts[i + 1]); return [p.x, p.y];
+    }) };
+    const navigation = new Navigation(2000, 2000, [wall]);
+    const start = rotate(0, 80), target = rotate(0, -80);
+    const gem = createPickup(game.physics, 'gem', start.x, start.y, 0);
+    game.player.body.setTranslation(target, true);
+    const pull = () => {
+      const previous = { x: gem.x, y: gem.y };
+      game.attractPickups.call({ magnetRemaining: 12, player: game.player, navigation, pickups: [gem] }, 1 / 60);
+      assert.ok(navigation.clearLine(previous, gem, 11 - 1e-6), 'sliding never crosses the wall or clips its corners');
+    };
+    for (let i = 0; i < 120; i++) pull();
+    assert.ok(Math.hypot(gem.x - target.x, gem.y - target.y) > 100, 'head-on pull stops at the wall');
+    const contact = { x: gem.x, y: gem.y };
+    const movedTarget = rotate(200, -80);
+    game.player.body.setTranslation(movedTarget, true);
+    for (let i = 0; i < 30; i++) pull();
+    assert.ok(Math.hypot(gem.x - contact.x, gem.y - contact.y) > 10, 'changing the approach slides a resting gem along the wall');
+    let reached = false;
+    for (let i = 0; i < 360; i++) {
+      pull();
+      if (Math.hypot(gem.x - movedTarget.x, gem.y - movedTarget.y) < 29) { reached = true; break; }
+    }
+    assert.ok(reached, 'the gem rounds the wall end and reaches collection range');
+    game.physics.unregister(gem.collider);
+    game.physics.world.removeCollider(gem.collider, false);
+  }
+
+  // The force crosses a corridor wall, but the pickup hits the wall itself.
   setup(); controls.thrust = false; game.wells = [];
   const ship = { x: game.gate.layout.barrier.x - 150, y: game.gate.y - 100 };
   game.player.body.setTranslation(ship, true); game.magnetUntil = 12;
   const blocked = createPickup(game.physics, 'gem', ship.x, game.gate.y - 240, 0);
   game.pickups.push(blocked); const blockedY = blocked.y;
+  assert.equal(game.navigation.clearLine(blocked, ship, 11), false, 'fixture has solid terrain between pickup and ship');
+  game.fixedUpdate(1 / 60);
+  assert.ok(blocked.y > blockedY, 'magnetic force attracts the gem despite the intervening wall');
+  for (let i = 0; i < 240; i++) game.fixedUpdate(1 / 60);
+  assert.equal(blocked.taken, false, 'the gem cannot be collected through solid terrain');
+  assert.ok(blocked.y < ship.y - 29, 'the gem stops on the far side of the wall');
+  const restingY = blocked.y;
   for (let i = 0; i < 60; i++) game.fixedUpdate(1 / 60);
-  assert.equal(blocked.y, blockedY, 'magnetism cannot pull rewards through solid terrain');
+  assert.ok(Math.abs(blocked.y - restingY) < 1, 'continued attraction cannot push the gem through the wall');
   game.reset(42); assert.equal(game.magnetRemaining, 0, 'restart clears magnetism');
-  console.log('PASS: magnet capsule contacts, range, sensor collection, duplicate protection, pause, refresh, expiry, wall occlusion and reset.');
+  console.log('PASS: magnet capsule contacts, useful edge pull, sensor collection, duplicate protection, pause, refresh, expiry, attraction through walls with pickup collision and reset.');
   // Use an actual Binary reward to verify its expanded inner field and reward.
   setup(); controls.thrust = false;
   const dangerGem = game.pickups.find(p => p.type === 'gem' && p.bonus);
