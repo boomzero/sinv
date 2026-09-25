@@ -84,7 +84,7 @@ export function hunterMaxSpeed(
   );
   const upgradeSpeed = Math.max(0, engineMultiplier - 1) *
     (PLAYER_ACCEL / PLAYER_DAMPING) * HUNTER_ENGINE_SPEED_GAIN;
-  return (baseSpeed + upgradeSpeed) * speedMult;
+  return baseSpeed * speedMult + upgradeSpeed;
 }
 
 export function updateHunter(

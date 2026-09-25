@@ -3,7 +3,7 @@ import { readSaved, writeSaved } from './util/storage';
 
 export interface Difficulty {
   name: string;
-  /** Scales the hunter's whole speed curve, including engine-upgrade pressure. */
+  /** Scales the hunter's time/orb speed curve; engine-upgrade pressure is not scaled. */
   hunterSpeedMult: number;
   /** Seconds of grace before the hunter begins the chase. */
   hunterWarmup: number;
