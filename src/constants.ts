@@ -29,10 +29,11 @@ export const HUNTER_BASE_SPEED = 350;
 export const HUNTER_SPEED_PER_15S = 9;
 export const HUNTER_SPEED_PER_ORB = 14;
 export const HUNTER_SPEED_CAP = 720;
-// Added outside the time/orb cap and the difficulty multiplier: engine
-// upgrades must not outgrow pursuit, but the hunter only edges ahead of
-// endgame cruise instead of pulling away. Boost still opens a substantial gap.
-export const HUNTER_ENGINE_SPEED_GAIN = 1.6;
+// Added outside the time/orb cap and the difficulty multiplier. Below the
+// player's own cruise gain: fast flight through the field is already risky,
+// so gems should pay off against the hunter. Time escalation still catches
+// runs that drag on; boost opens a gap.
+export const HUNTER_ENGINE_SPEED_GAIN = 0.75;
 export const HUNTER_GAIN = 2.6; // steering responsiveness
 export const HUNTER_WARMUP = 5; // seconds before pursuit begins
 export const HUNTER_STUN = 3; // seconds stunned after shield break

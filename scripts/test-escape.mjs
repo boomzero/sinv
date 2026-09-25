@@ -17,11 +17,17 @@ try {
   assert.equal(hunterMaxSpeed(0, 0, 1, 0.8), hunterMaxSpeed(0, 0, 1), 'Normal starting speed is unchanged');
   assert.ok(hunterMaxSpeed(150, 0, 1, 0.8) > hunterMaxSpeed(0, 0, 1, 0.8), 'hunter still accelerates with time');
   assert.ok(hunterMaxSpeed(150, 0, 1, 0.8) < hunterMaxSpeed(150, 0, 1), 'Normal late-run acceleration is eased');
-  // Real open-space pursuit: ordinary thrust cannot permanently escape an
-  // endgame hunter, but a fuel-limited boost still creates breathing room.
+  // Real open-space pursuit: on Normal, an upgraded engine can cruise ahead of
+  // a timely endgame hunter; a dragged-out run with the minimum escape loadout
+  // still gets caught on Normal and above, and a fuel-limited boost always
+  // creates breathing room.
   for (const difficulty of DIFFICULTIES.slice(1)) {
     for (const gems of [difficulty.escapeGems ?? difficulty.gemCount, 120]) {
-      for (const boost of [false, true]) {
+      for (const [boost, playTime] of [[false, 150], [false, 600], [true, 150]]) {
+        if (!boost && playTime === 150 && difficulty.name !== 'NORMAL') continue;
+        // Surplus upgrades may outrun even a late hunter; the minimum escape
+        // loadout must not.
+        if (!boost && playTime === 600 && gems === 120) continue;
         const physics = new PhysicsContext();
         const player = createPlayer(physics, 1000, 1000);
         const hunter = createHunter(physics, 650, 1000);
@@ -34,7 +40,7 @@ try {
         let caught = false, gap = 350;
         for (let frame = 0; frame < (boost ? 150 : 900); frame++) {
           updatePlayer(player, input, 1 / 60);
-          updateHunter(hunter, player, physics, 150 + frame / 60, 0, false, difficulty, [], 1 / 60, nav);
+          updateHunter(hunter, player, physics, playTime + frame / 60, 0, false, difficulty, [], 1 / 60, nav);
           physics.world.step();
           gap = player.body.translation().x - hunter.body.translation().x;
           if (gap < 31) { caught = true; break; }
@@ -42,14 +48,16 @@ try {
         if (boost) {
           assert.ok(!caught && gap > 450, `${difficulty.name}/${gems}: a boost tank must open a gap (${gap})`);
           assert.ok(player.boostFuel < 11, 'escape uses real boost fuel');
+        } else if (playTime === 150) {
+          assert.ok(!caught && gap > 350, `${difficulty.name}/${gems}: upgraded cruise must outpace a timely endgame hunter (${gap})`);
         } else {
-          assert.ok(caught, `${difficulty.name}/${gems}: hunter must close on cruising endgame prey (${gap})`);
+          assert.ok(caught, `${difficulty.name}/${gems}: hunter must close on cruising prey in a dragged-out run (${gap})`);
         }
         physics.free();
       }
     }
   }
-  console.log('PASS: endgame hunters catch sustained cruise; finite boost opens a gap on Normal, Hard and Extreme, including surplus upgrades.');
+  console.log('PASS: upgraded cruise outpaces a timely Normal hunter; dragged-out runs are caught; finite boost opens a gap on Normal, Hard and Extreme, including surplus upgrades.');
   const game = new Game();
   const controls = { thrust: true, boost: true };
   Object.defineProperties(game.input, {
